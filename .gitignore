@@ -1,0 +1,8 @@
+# OS
+.DS_Store
+
+# pnpm 임시 store (샌드박스에서 전역 store 접근 불가 시 생성됨)
+.pnpm-store/
+
+# 의존성 (frontend/backend 각자 .gitignore에서도 처리)
+node_modules/
