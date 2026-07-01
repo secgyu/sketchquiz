@@ -1,23 +1,51 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { LogIn, LogOut, Pencil } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { generateRoomCode } from "@/lib/mock";
+import { useSocket } from "@/hooks/useSocket";
 import { useAuthStore } from "@/store/authStore";
+import { useRoomStore } from "@/store/roomStore";
 
 export function StartScreen() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const { socket } = useSocket();
+  const setRoom = useRoomStore((s) => s.setRoom);
 
   const [roomCode, setRoomCode] = useState("");
   const [error, setError] = useState("");
+  // 새 방 만들기는 서버가 코드를 발급한 뒤에야 이동할 수 있으므로 응답을 기다린다.
+  const creatingRef = useRef(false);
+
+  useEffect(() => {
+    const onRoomState = (state: Parameters<typeof setRoom>[0]) => {
+      setRoom(state);
+      if (creatingRef.current) {
+        creatingRef.current = false;
+        navigate(`/room/${state.code}`);
+      }
+    };
+    const onRoomError = ({ message }: { message: string }) => {
+      creatingRef.current = false;
+      setError(message);
+    };
+
+    socket.on("room:state", onRoomState);
+    socket.on("room:error", onRoomError);
+    return () => {
+      socket.off("room:state", onRoomState);
+      socket.off("room:error", onRoomError);
+    };
+  }, [socket, setRoom, navigate]);
 
   const handleCreate = () => {
-    navigate(`/room/${generateRoomCode()}`);
+    setError("");
+    creatingRef.current = true;
+    socket.emit("room:create");
   };
 
   const handleJoin = () => {

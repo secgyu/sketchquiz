@@ -18,14 +18,6 @@ export interface ChatMessage {
 
 export type Screen = "start" | "lobby" | "game" | "result";
 
-/** 방 코드 4자리 생성 (헷갈리는 0/O/1/I 제외) */
-export function generateRoomCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return code;
-}
-
 export const MOCK_PLAYERS: Player[] = [
   { id: "p1", nickname: "철수", score: 1240, isHost: true, isDrawing: true, hasGuessed: false },
   { id: "p2", nickname: "영희", score: 980, isHost: false, isDrawing: false, hasGuessed: true },
