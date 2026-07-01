@@ -210,7 +210,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (game.status === 'ended') {
       this.clearTurnTimer(code);
       room.game = undefined;
-      this.server.to(code).emit('game:ended', { players: room.players });
+      const ranking = [...room.players].sort((a, b) => b.score - a.score);
+      this.server.to(code).emit('game:ended', { ranking });
       return;
     }
     this.announceTurn(room);
