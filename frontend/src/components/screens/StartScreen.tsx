@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { LogIn, LogOut, Pencil } from "lucide-react";
+import { Compass, LogIn, LogOut, Pencil } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
@@ -137,6 +137,11 @@ export function StartScreen() {
 
             <Button size="lg" variant="pink" onClick={handleCreate} className="w-full text-white">
               새 방 만들기
+            </Button>
+
+            <Button size="lg" variant="purple" onClick={() => navigate("/rooms")} className="w-full">
+              <Compass strokeWidth={2.5} />
+              공개방 둘러보기
             </Button>
           </div>
         ) : (

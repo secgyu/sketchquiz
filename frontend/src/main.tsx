@@ -9,12 +9,21 @@ import { AuthScreen } from "@/components/screens/AuthScreen";
 import { GameScreen } from "@/components/screens/GameScreen";
 import { LobbyScreen } from "@/components/screens/LobbyScreen";
 import { ResultScreen } from "@/components/screens/ResultScreen";
+import { RoomBrowserScreen } from "@/components/screens/RoomBrowserScreen";
 import { StartScreen } from "@/components/screens/StartScreen";
 import "./index.css";
 
 const router = createBrowserRouter([
   { path: "/", element: <StartScreen /> },
   { path: "/login", element: <AuthScreen /> },
+  {
+    path: "/rooms",
+    element: (
+      <RequireAuth>
+        <RoomBrowserScreen />
+      </RequireAuth>
+    ),
+  },
   {
     path: "/room/:code",
     element: (
