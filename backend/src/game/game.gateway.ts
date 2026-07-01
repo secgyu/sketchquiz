@@ -16,6 +16,7 @@ import {
 } from './game.service';
 import type {
   CreateRoomPayload,
+  DrawStroke,
   JoinRoomPayload,
   Room,
   RoomState,
@@ -133,6 +134,23 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       duration: ROUND_SECONDS,
     });
     this.setTurnTimer(room.code, ROUND_SECONDS);
+  }
+
+  @SubscribeMessage('draw:stroke')
+  handleDrawStroke(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() stroke: DrawStroke,
+  ) {
+    const room = this.roomService.getRoomByPlayer(client.id);
+    if (!room?.game || room.game.drawerId !== client.id) return; // 출제자만 그릴 수 있다
+    client.to(room.code).emit('draw:stroke', stroke);
+  }
+
+  @SubscribeMessage('draw:clear')
+  handleDrawClear(@ConnectedSocket() client: Socket) {
+    const room = this.roomService.getRoomByPlayer(client.id);
+    if (!room?.game || room.game.drawerId !== client.id) return;
+    client.to(room.code).emit('draw:clear');
   }
 
   /** 턴 시작을 방에 알리고 출제자에게 단어 입력을 요청한다. 단어 입력 제한시간을 건다. */

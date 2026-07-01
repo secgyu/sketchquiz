@@ -42,3 +42,13 @@ export interface JoinRoomPayload {
 export interface SetWordPayload {
   word: string;
 }
+
+/** 한 획의 선분. 서버는 내용을 해석하지 않고 방에 그대로 중계한다. */
+export interface DrawStroke {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  color: string;
+  width: number;
+}
