@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router";
 import { Clock, DoorOpen } from "lucide-react";
 
 import { CanvasBoard } from "@/components/game/CanvasBoard";
@@ -27,9 +28,9 @@ function WordTiles({ word, revealed }: { word: string; revealed: boolean }) {
 }
 
 export function GameScreen() {
+  const navigate = useNavigate();
+  const { code = "" } = useParams();
   const players = useGameStore((s) => s.players);
-  const endGame = useGameStore((s) => s.endGame);
-  const leave = useGameStore((s) => s.leave);
   const [timeLeft, setTimeLeft] = useState(MOCK_ROUND_SECONDS);
 
   // 표시용 카운트다운 (실제 라운드 종료 판정은 추후 서버가 담당)
@@ -62,7 +63,7 @@ export function GameScreen() {
               <Clock className="size-5 text-ink" strokeWidth={2.5} />
               <span className="w-7 text-xl font-black text-ink tabular-nums">{timeLeft}</span>
             </div>
-            <Button size="sm" variant="default" onClick={endGame}>
+            <Button size="sm" variant="default" onClick={() => navigate(`/room/${code}/result`)}>
               결과 보기
             </Button>
           </div>
@@ -99,7 +100,7 @@ export function GameScreen() {
 
         <button
           type="button"
-          onClick={leave}
+          onClick={() => navigate("/")}
           className="mx-auto flex shrink-0 items-center gap-1.5 border-2 border-ink bg-white px-3 py-1 text-sm font-black text-ink shadow-[2px_2px_0_0_var(--color-ink)] transition-transform hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
         >
           <DoorOpen className="size-4" strokeWidth={2.5} />방 나가기

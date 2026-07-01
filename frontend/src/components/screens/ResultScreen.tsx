@@ -1,3 +1,4 @@
+import { useNavigate, useParams } from "react-router";
 import { DoorOpen, RotateCcw, Trophy } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
@@ -34,9 +35,9 @@ function PodiumColumn({ player, rank }: { player: Player; rank: number }) {
 }
 
 export function ResultScreen() {
+  const navigate = useNavigate();
+  const { code = "" } = useParams();
   const players = useGameStore((s) => s.players);
-  const restart = useGameStore((s) => s.restart);
-  const leave = useGameStore((s) => s.leave);
 
   const ranking = [...players].sort((a, b) => b.score - a.score);
   const podium = ranking.slice(0, 3);
@@ -79,11 +80,11 @@ export function ResultScreen() {
         )}
 
         <div className="mt-8 flex gap-3">
-          <Button size="lg" variant="green" onClick={restart} className="flex-1 text-base">
+          <Button size="lg" variant="green" onClick={() => navigate(`/room/${code}`)} className="flex-1 text-base">
             <RotateCcw strokeWidth={2.5} />
             다시 하기
           </Button>
-          <Button size="lg" variant="default" onClick={leave}>
+          <Button size="lg" variant="default" onClick={() => navigate("/")}>
             <DoorOpen strokeWidth={2.5} />
             나가기
           </Button>

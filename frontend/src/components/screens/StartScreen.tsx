@@ -1,31 +1,31 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { Pencil } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { generateRoomCode } from "@/lib/mock";
 import { useGameStore } from "@/store/gameStore";
 
 export function StartScreen() {
+  const navigate = useNavigate();
   const nickname = useGameStore((s) => s.nickname);
-  const roomCode = useGameStore((s) => s.roomCode);
   const setNickname = useGameStore((s) => s.setNickname);
-  const setRoomCode = useGameStore((s) => s.setRoomCode);
-  const createRoom = useGameStore((s) => s.createRoom);
-  const joinRoom = useGameStore((s) => s.joinRoom);
 
+  const [roomCode, setRoomCode] = useState("");
   const [error, setError] = useState("");
   const canStart = nickname.trim().length > 0;
 
   const handleCreate = () => {
     if (!canStart) return setError("닉네임을 먼저 입력해 줘!");
-    createRoom();
+    navigate(`/room/${generateRoomCode()}`);
   };
 
   const handleJoin = () => {
     if (!canStart) return setError("닉네임을 먼저 입력해 줘!");
     if (roomCode.trim().length < 4) return setError("방 코드 4자리를 입력해 줘!");
-    joinRoom();
+    navigate(`/room/${roomCode.trim()}`);
   };
 
   return (
@@ -76,7 +76,7 @@ export function StartScreen() {
                 id="roomCode"
                 value={roomCode}
                 onChange={(e) => {
-                  setRoomCode(e.target.value);
+                  setRoomCode(e.target.value.toUpperCase());
                   setError("");
                 }}
                 maxLength={4}
