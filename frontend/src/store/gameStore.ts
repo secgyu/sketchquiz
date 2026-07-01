@@ -26,6 +26,7 @@ interface GameStore {
   onTurnStart: (p: { wordLength: number; duration: number }) => void;
   onChat: (p: { nickname: string; text: string }) => void;
   onCorrect: (p: { playerId: string; nickname: string }) => void;
+  onPlayerLeft: (nickname: string) => void;
   flashCorrect: () => void;
   onEnded: (ranking: Player[]) => void;
   setMyWord: (word: string) => void;
@@ -85,6 +86,9 @@ export const useGameStore = create<GameStore>((set) => ({
       correctIds: [...s.correctIds, playerId],
       messages: [...s.messages, message("correct", `${nickname}님이 정답을 맞혔어요!`, nickname)],
     })),
+
+  onPlayerLeft: (nickname) =>
+    set((s) => ({ messages: [...s.messages, message("system", `${nickname}님이 나갔어요.`)] })),
 
   flashCorrect: () => set((s) => ({ correctFlash: s.correctFlash + 1 })),
 

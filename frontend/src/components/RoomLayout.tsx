@@ -32,6 +32,7 @@ export function RoomLayout() {
       g.onCorrect(p);
       if (p.playerId === socket.id) g.flashCorrect(); // 맞힌 본인에게만 "정답!" 오버레이
     };
+    const onPlayerLeft = ({ nickname }: { nickname: string }) => useGameStore.getState().onPlayerLeft(nickname);
     const onEnded = ({ ranking }: { ranking: Parameters<typeof game.onEnded>[0] }) => {
       useGameStore.getState().onEnded(ranking);
       navigate(`/room/${code}/result`);
@@ -43,6 +44,7 @@ export function RoomLayout() {
     socket.on("game:turn-start", onTurnStart);
     socket.on("chat:message", onChat);
     socket.on("chat:correct", onCorrect);
+    socket.on("player:left", onPlayerLeft);
     socket.on("game:ended", onEnded);
 
     // 새로고침·직접 진입 등으로 아직 이 방에 없으면 입장한다(중복 입장은 서버가 무시).
@@ -55,6 +57,7 @@ export function RoomLayout() {
       socket.off("game:turn-start", onTurnStart);
       socket.off("chat:message", onChat);
       socket.off("chat:correct", onCorrect);
+      socket.off("player:left", onPlayerLeft);
       socket.off("game:ended", onEnded);
     };
   }, [socket, code, navigate]);

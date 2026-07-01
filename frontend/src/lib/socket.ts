@@ -37,6 +37,7 @@ export interface ServerToClientEvents {
   "draw:clear": () => void;
   "chat:correct": (payload: { playerId: string; nickname: string }) => void;
   "chat:message": (payload: { playerId: string; nickname: string; text: string }) => void;
+  "player:left": (payload: { nickname: string }) => void;
   "game:ended": (payload: { ranking: Player[] }) => void;
 }
 

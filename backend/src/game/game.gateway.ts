@@ -65,11 +65,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleDisconnect(client: Socket) {
     this.logger.log(`연결 끊김: ${client.id}`);
+    const nickname = (client.data as SocketData).username;
     const wasDrawer =
       this.roomService.getRoomByPlayer(client.id)?.game?.drawerId === client.id;
     const room = this.roomService.leaveRoom(client.id);
     if (!room) return;
 
+    if (nickname) this.server.to(room.code).emit('player:left', { nickname });
     this.server.to(room.code).emit('room:state', this.toState(room));
     // 진행 중인데 출제자가 나갔으면 다음 턴으로 넘긴다.
     if (wasDrawer && room.game) this.advanceTurn(room.code);
