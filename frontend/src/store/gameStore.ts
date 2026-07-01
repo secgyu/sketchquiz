@@ -20,11 +20,13 @@ interface GameStore {
   correctIds: string[]; // 이번 턴 정답자 id (체크 표시용)
   messages: ChatMessage[];
   ranking: Player[]; // game:ended 최종 순위
+  correctFlash: number; // 본인이 정답을 맞힌 순간 증가 → "정답!" 오버레이 트리거
 
   onTurn: (p: { round: number; totalRounds: number; drawerId: string; selectDuration: number }) => void;
   onTurnStart: (p: { wordLength: number; duration: number }) => void;
   onChat: (p: { nickname: string; text: string }) => void;
   onCorrect: (p: { playerId: string; nickname: string }) => void;
+  flashCorrect: () => void;
   onEnded: (ranking: Player[]) => void;
   setMyWord: (word: string) => void;
   reset: () => void;
@@ -43,6 +45,7 @@ const initial = {
   correctIds: [] as string[],
   messages: [] as ChatMessage[],
   ranking: [] as Player[],
+  correctFlash: 0,
 };
 
 function message(kind: ChatMessage["kind"], text: string, nickname?: string): ChatMessage {
@@ -55,6 +58,7 @@ export const useGameStore = create<GameStore>((set) => ({
 
   onTurn: ({ round, totalRounds, drawerId, selectDuration }) => {
     const drawer = useRoomStore.getState().room?.players.find((p) => p.id === drawerId);
+    const turnMsg = message("system", `${drawer?.nickname ?? "누군가"}님이 그릴 차례예요!`);
     set((s) => ({
       turnKey: s.turnKey + 1,
       phase: "selecting",
@@ -66,21 +70,23 @@ export const useGameStore = create<GameStore>((set) => ({
       deadline: Date.now() + selectDuration * 1000,
       myWord: "",
       correctIds: [],
-      messages: [message("system", `${drawer?.nickname ?? "누군가"}님이 그릴 차례예요!`)],
+      // 채팅 로그는 게임 내내 유지하고, 새 게임(직전 phase가 idle)일 때만 비운다.
+      messages: s.phase === "idle" ? [turnMsg] : [...s.messages, turnMsg],
     }));
   },
 
   onTurnStart: ({ wordLength, duration }) =>
     set({ phase: "drawing", wordLength, duration, deadline: Date.now() + duration * 1000 }),
 
-  onChat: ({ nickname, text }) =>
-    set((s) => ({ messages: [...s.messages, message("chat", text, nickname)] })),
+  onChat: ({ nickname, text }) => set((s) => ({ messages: [...s.messages, message("chat", text, nickname)] })),
 
   onCorrect: ({ playerId, nickname }) =>
     set((s) => ({
       correctIds: [...s.correctIds, playerId],
       messages: [...s.messages, message("correct", `${nickname}님이 정답을 맞혔어요!`, nickname)],
     })),
+
+  flashCorrect: () => set((s) => ({ correctFlash: s.correctFlash + 1 })),
 
   onEnded: (ranking) => set({ phase: "idle", ranking }),
 

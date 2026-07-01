@@ -27,7 +27,11 @@ export function RoomLayout() {
     };
     const onTurnStart = (p: Parameters<typeof game.onTurnStart>[0]) => useGameStore.getState().onTurnStart(p);
     const onChat = (p: Parameters<typeof game.onChat>[0]) => useGameStore.getState().onChat(p);
-    const onCorrect = (p: Parameters<typeof game.onCorrect>[0]) => useGameStore.getState().onCorrect(p);
+    const onCorrect = (p: Parameters<typeof game.onCorrect>[0]) => {
+      const g = useGameStore.getState();
+      g.onCorrect(p);
+      if (p.playerId === socket.id) g.flashCorrect(); // 맞힌 본인에게만 "정답!" 오버레이
+    };
     const onEnded = ({ ranking }: { ranking: Parameters<typeof game.onEnded>[0] }) => {
       useGameStore.getState().onEnded(ranking);
       navigate(`/room/${code}/result`);

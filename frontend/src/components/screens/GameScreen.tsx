@@ -4,6 +4,7 @@ import { Clock, DoorOpen, Pencil } from "lucide-react";
 
 import { CanvasBoard } from "@/components/game/CanvasBoard";
 import { ChatPanel } from "@/components/game/ChatPanel";
+import { Confetti } from "@/components/game/Confetti";
 import { PlayerList } from "@/components/game/PlayerList";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,8 +42,10 @@ export function GameScreen() {
     useGameStore();
   const setMyWord = useGameStore((s) => s.setMyWord);
 
+  const correctFlash = useGameStore((s) => s.correctFlash);
   const [timeLeft, setTimeLeft] = useState(0);
   const [wordDraft, setWordDraft] = useState("");
+  const [showCorrect, setShowCorrect] = useState(false);
 
   const isDrawer = socket.id === drawerId;
 
@@ -52,6 +55,14 @@ export function GameScreen() {
     const id = setInterval(tick, 250);
     return () => clearInterval(id);
   }, [deadline]);
+
+  // 본인이 정답을 맞히면 "정답!" 오버레이를 잠깐 띄운다.
+  useEffect(() => {
+    if (correctFlash === 0) return;
+    setShowCorrect(true);
+    const id = setTimeout(() => setShowCorrect(false), 1500);
+    return () => clearTimeout(id);
+  }, [correctFlash]);
 
   const players = (room?.players ?? []).map((p) => ({
     ...p,
@@ -80,6 +91,16 @@ export function GameScreen() {
 
   return (
     <div className="brutal-bg h-svh overflow-hidden p-4">
+      {showCorrect && (
+        <>
+          <Confetti />
+          <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+            <span className="animate-in zoom-in-50 fade-in rotate-[-4deg] rounded-2xl border-[4px] border-ink bg-brand-green px-10 py-5 text-5xl font-black text-ink shadow-hard-lg duration-300">
+              정답!
+            </span>
+          </div>
+        </>
+      )}
       <div className="mx-auto flex h-full max-w-7xl flex-col gap-3">
         <header className="flex flex-wrap items-center justify-between gap-4 rounded-xl border-[3px] border-ink bg-white px-4 py-3 shadow-hard">
           <div className="rounded-lg border-2 border-ink bg-brand-purple px-3 py-1.5 text-sm font-black text-ink">
