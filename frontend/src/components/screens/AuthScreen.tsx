@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { Navigate, useNavigate } from "react-router";
 import { Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ type Mode = "login" | "register";
 
 export function AuthScreen() {
   const navigate = useNavigate();
+  const token = useAuthStore((s) => s.token);
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const [mode, setMode] = useState<Mode>("login");
@@ -38,6 +39,8 @@ export function AuthScreen() {
     setMode(next);
     setError("");
   };
+
+  if (token) return <Navigate to="/" replace />;
 
   return (
     <div className="brutal-bg flex min-h-svh items-center justify-center p-4">

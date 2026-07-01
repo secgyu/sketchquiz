@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { LogOut, Pencil } from "lucide-react";
+import { LogIn, LogOut, Pencil } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ export function StartScreen() {
 
   const handleLogout = () => {
     logout();
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
   };
 
   return (
@@ -48,68 +48,80 @@ export function StartScreen() {
           </p>
         </div>
 
-        <div className="mt-8 space-y-5">
-          <div className="flex items-center justify-between gap-3 rounded-xl border-[3px] border-ink bg-brand-yellow px-4 py-3 shadow-hard">
-            <div className="flex items-center gap-3">
-              {user && <Avatar nickname={user.username} />}
-              <div className="text-left">
-                <p className="text-xs font-bold text-ink/70">반가워요</p>
-                <p className="text-lg font-black text-ink">{user?.username}</p>
+        {user ? (
+          <div className="mt-8 space-y-5">
+            <div className="flex items-center justify-between gap-3 rounded-xl border-[3px] border-ink bg-brand-yellow px-4 py-3 shadow-hard">
+              <div className="flex items-center gap-3">
+                <Avatar nickname={user.username} />
+                <div className="text-left">
+                  <p className="text-xs font-bold text-ink/70">반가워요</p>
+                  <p className="text-lg font-black text-ink">{user.username}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="로그아웃"
+                className="press flex size-10 items-center justify-center rounded-lg border-[3px] border-ink bg-white text-ink"
+              >
+                <LogOut className="size-5" strokeWidth={2.5} />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="roomCode" className="text-sm font-black uppercase tracking-wide">
+                방 코드로 입장
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  id="roomCode"
+                  value={roomCode}
+                  onChange={(e) => {
+                    setRoomCode(e.target.value.toUpperCase());
+                    setError("");
+                  }}
+                  maxLength={4}
+                  placeholder="AB7K"
+                  autoComplete="off"
+                  className="font-mono text-lg font-black tracking-[0.3em] uppercase"
+                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                />
+                <Button size="lg" variant="blue" onClick={handleJoin}>
+                  입장
+                </Button>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              title="로그아웃"
-              className="press flex size-10 items-center justify-center rounded-lg border-[3px] border-ink bg-white text-ink"
-            >
-              <LogOut className="size-5" strokeWidth={2.5} />
-            </button>
-          </div>
 
-          <div className="space-y-2">
-            <label htmlFor="roomCode" className="text-sm font-black uppercase tracking-wide">
-              방 코드로 입장
-            </label>
-            <div className="flex gap-2">
-              <Input
-                id="roomCode"
-                value={roomCode}
-                onChange={(e) => {
-                  setRoomCode(e.target.value.toUpperCase());
-                  setError("");
-                }}
-                maxLength={4}
-                placeholder="AB7K"
-                autoComplete="off"
-                className="font-mono text-lg font-black tracking-[0.3em] uppercase"
-                onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-              />
-              <Button size="lg" variant="blue" onClick={handleJoin}>
-                입장
-              </Button>
+            {error && (
+              <p
+                role="alert"
+                className="border-2 border-ink bg-brand-red px-3 py-2 text-sm font-bold text-ink shadow-hard"
+              >
+                {error}
+              </p>
+            )}
+
+            <div className="flex items-center gap-3 text-xs font-black uppercase">
+              <span className="h-0.5 flex-1 bg-ink" />
+              또는
+              <span className="h-0.5 flex-1 bg-ink" />
             </div>
-          </div>
 
-          {error && (
-            <p
-              role="alert"
-              className="border-2 border-ink bg-brand-red px-3 py-2 text-sm font-bold text-ink shadow-hard"
-            >
-              {error}
+            <Button size="lg" variant="pink" onClick={handleCreate} className="w-full text-white">
+              새 방 만들기
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-8 space-y-4">
+            <p className="text-center text-sm font-bold text-ink/70">
+              로그인하면 방을 만들고 친구와 함께 놀 수 있어요!
             </p>
-          )}
-
-          <div className="flex items-center gap-3 text-xs font-black uppercase">
-            <span className="h-0.5 flex-1 bg-ink" />
-            또는
-            <span className="h-0.5 flex-1 bg-ink" />
+            <Button size="lg" variant="green" onClick={() => navigate("/login")} className="w-full text-base">
+              <LogIn strokeWidth={2.5} />
+              로그인 / 회원가입
+            </Button>
           </div>
-
-          <Button size="lg" variant="pink" onClick={handleCreate} className="w-full text-white">
-            새 방 만들기
-          </Button>
-        </div>
+        )}
       </main>
     </div>
   );

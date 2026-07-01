@@ -12,15 +12,8 @@ import { StartScreen } from "@/components/screens/StartScreen";
 import "./index.css";
 
 const router = createBrowserRouter([
+  { path: "/", element: <StartScreen /> },
   { path: "/login", element: <AuthScreen /> },
-  {
-    path: "/",
-    element: (
-      <RequireAuth>
-        <StartScreen />
-      </RequireAuth>
-    ),
-  },
   {
     path: "/room/:code",
     element: (
