@@ -36,13 +36,14 @@ export interface RoomState {
   players: Player[];
 }
 
-export interface CreateRoomPayload {
-  nickname: string;
+/** 소켓 연결에 저장하는 인증된 사용자 정보 (JWT에서 추출) */
+export interface SocketData {
+  userId: string;
+  username: string;
 }
 
 export interface JoinRoomPayload {
   code: string;
-  nickname: string;
 }
 
 export interface SetWordPayload {

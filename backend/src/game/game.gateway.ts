@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import {
   ConnectedSocket,
   MessageBody,
@@ -9,6 +10,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import type { JwtPayload } from '../auth/jwt.strategy';
 import {
   GameService,
   ROUND_SECONDS,
@@ -16,12 +18,12 @@ import {
 } from './game.service';
 import type {
   ChatMessagePayload,
-  CreateRoomPayload,
   DrawStroke,
   JoinRoomPayload,
   Room,
   RoomState,
   SetWordPayload,
+  SocketData,
 } from './game.types';
 import { RoomService } from './room.service';
 
@@ -43,10 +45,22 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly roomService: RoomService,
     private readonly gameService: GameService,
+    private readonly jwt: JwtService,
   ) {}
 
   handleConnection(client: Socket) {
-    this.logger.log(`연결됨: ${client.id}`);
+    try {
+      const payload = this.jwt.verify<JwtPayload>(this.extractToken(client));
+      const data = client.data as SocketData;
+      data.userId = payload.sub;
+      data.username = payload.username;
+      this.logger.log(`연결됨: ${payload.username} (${client.id})`);
+    } catch {
+      client.emit('auth:error', {
+        message: '인증에 실패했어요. 다시 로그인해 주세요.',
+      });
+      client.disconnect();
+    }
   }
 
   handleDisconnect(client: Socket) {
@@ -62,11 +76,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('room:create')
-  handleCreate(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() { nickname }: CreateRoomPayload,
-  ) {
-    const room = this.roomService.createRoom(client.id, nickname);
+  handleCreate(@ConnectedSocket() client: Socket) {
+    const room = this.roomService.createRoom(client.id, this.username(client));
     void client.join(room.code);
     client.emit('room:state', this.toState(room));
   }
@@ -74,13 +85,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('room:join')
   handleJoin(
     @ConnectedSocket() client: Socket,
-    @MessageBody() { code, nickname }: JoinRoomPayload,
+    @MessageBody() { code }: JoinRoomPayload,
   ) {
     try {
       const room = this.roomService.joinRoom(
         code.toUpperCase(),
         client.id,
-        nickname,
+        this.username(client),
       );
       void client.join(room.code);
       this.server.to(room.code).emit('room:state', this.toState(room));
@@ -235,5 +246,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private toState(room: Room): RoomState {
     return { code: room.code, hostId: room.hostId, players: room.players };
+  }
+
+  private username(client: Socket): string {
+    return (client.data as SocketData).username;
+  }
+
+  /** 소켓 핸드셰이크에서 JWT를 꺼낸다 (auth.token 우선, Authorization 헤더 대체). */
+  private extractToken(client: Socket): string {
+    const auth = client.handshake.auth as { token?: unknown };
+    if (typeof auth.token === 'string' && auth.token) return auth.token;
+
+    const header = client.handshake.headers.authorization;
+    if (header?.startsWith('Bearer ')) return header.slice(7);
+
+    throw new Error('토큰 없음');
   }
 }
