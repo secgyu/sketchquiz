@@ -3,6 +3,7 @@ import { Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSocket } from "@/hooks/useSocket";
 import type { ChatMessage } from "@/lib/mock";
 import { useGameStore } from "@/store/gameStore";
 
@@ -29,9 +30,9 @@ function MessageRow({ message }: { message: ChatMessage }) {
   );
 }
 
-export function ChatPanel() {
+export function ChatPanel({ canGuess = true }: { canGuess?: boolean }) {
+  const { socket } = useSocket();
   const messages = useGameStore((s) => s.messages);
-  const sendMessage = useGameStore((s) => s.sendMessage);
   const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -39,8 +40,11 @@ export function ChatPanel() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // 서버가 모든 참가자(보낸 사람 포함)에게 되돌려주므로 로컬에 직접 추가하지 않는다.
   const handleSend = () => {
-    sendMessage(draft);
+    const text = draft.trim();
+    if (!text) return;
+    socket.emit("chat:message", { text });
     setDraft("");
   };
 
@@ -65,10 +69,11 @@ export function ChatPanel() {
         <Input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="정답 입력!"
+          placeholder={canGuess ? "정답 입력!" : "출제자는 채팅할 수 없어요"}
           autoComplete="off"
+          disabled={!canGuess}
         />
-        <Button type="submit" size="icon" variant="green" aria-label="전송">
+        <Button type="submit" size="icon" variant="green" aria-label="전송" disabled={!canGuess}>
           <Send strokeWidth={2.5} />
         </Button>
       </form>

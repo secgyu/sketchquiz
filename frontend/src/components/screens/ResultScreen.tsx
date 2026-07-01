@@ -3,9 +3,10 @@ import { DoorOpen, RotateCcw, Trophy } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
-import type { Player } from "@/lib/mock";
+import { disconnectSocket, type Player } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
+import { useRoomStore } from "@/store/roomStore";
 
 const PODIUM_STYLE = [
   { height: "h-28", fill: "bg-brand-yellow", label: "1" },
@@ -37,11 +38,17 @@ function PodiumColumn({ player, rank }: { player: Player; rank: number }) {
 export function ResultScreen() {
   const navigate = useNavigate();
   const { code = "" } = useParams();
-  const players = useGameStore((s) => s.players);
+  const ranking = useGameStore((s) => s.ranking);
 
-  const ranking = [...players].sort((a, b) => b.score - a.score);
   const podium = ranking.slice(0, 3);
   const rest = ranking.slice(3);
+
+  const handleLeave = () => {
+    disconnectSocket();
+    useGameStore.getState().reset();
+    useRoomStore.getState().reset();
+    navigate("/");
+  };
 
   return (
     <div className="brutal-bg flex min-h-svh items-center justify-center p-4">
@@ -84,7 +91,7 @@ export function ResultScreen() {
             <RotateCcw strokeWidth={2.5} />
             다시 하기
           </Button>
-          <Button size="lg" variant="default" onClick={() => navigate("/")}>
+          <Button size="lg" variant="default" onClick={handleLeave}>
             <DoorOpen strokeWidth={2.5} />
             나가기
           </Button>

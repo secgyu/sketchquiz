@@ -1,11 +1,11 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Check, Clock, Copy, DoorOpen, Hash, Play, Users } from "lucide-react";
 
 import { PlayerList } from "@/components/game/PlayerList";
 import { Button } from "@/components/ui/button";
 import { useSocket } from "@/hooks/useSocket";
-import { MOCK_ROUND_SECONDS, MOCK_TOTAL_ROUNDS } from "@/lib/mock";
+import { DEFAULT_ROUND_SECONDS, DEFAULT_TOTAL_ROUNDS } from "@/lib/mock";
 import { disconnectSocket } from "@/lib/socket";
 import { useRoomStore } from "@/store/roomStore";
 
@@ -26,10 +26,9 @@ export function LobbyScreen() {
   const { code = "" } = useParams();
   const { socket } = useSocket();
   const room = useRoomStore((s) => s.room);
-  const setRoom = useRoomStore((s) => s.setRoom);
+  const error = useRoomStore((s) => s.error);
   const resetRoom = useRoomStore((s) => s.reset);
   const [copied, setCopied] = useState(false);
-  const [error, setError] = useState("");
 
   const isHost = !!room && socket.id === room.hostId;
   // 서버 플레이어(id·nickname·score)를 화면용 형태로 변환한다(방장 왕관은 hostId로 판별).
@@ -39,29 +38,6 @@ export function LobbyScreen() {
     isDrawing: false,
     hasGuessed: false,
   }));
-
-  useEffect(() => {
-    const onRoomState = (state: Parameters<typeof setRoom>[0]) => setRoom(state);
-    const onRoomError = ({ message }: { message: string }) => {
-      setError(message);
-      resetRoom();
-    };
-    // 게임이 시작되면 서버가 첫 턴(game:turn)을 알린다 → 모두 플레이 화면으로.
-    const onGameTurn = () => navigate(`/room/${code}/play`);
-
-    socket.on("room:state", onRoomState);
-    socket.on("room:error", onRoomError);
-    socket.on("game:turn", onGameTurn);
-
-    // 새로고침·직접 진입 등으로 아직 이 방에 없으면 입장한다(중복 입장은 서버가 무시).
-    if (room?.code !== code) socket.emit("room:join", { code });
-
-    return () => {
-      socket.off("room:state", onRoomState);
-      socket.off("room:error", onRoomError);
-      socket.off("game:turn", onGameTurn);
-    };
-  }, [socket, code, room?.code, setRoom, resetRoom, navigate]);
 
   const copyCode = async () => {
     await navigator.clipboard.writeText(code);
@@ -104,13 +80,13 @@ export function LobbyScreen() {
           <SettingItem
             icon={<Hash className="size-3.5" strokeWidth={2.5} />}
             label="라운드"
-            value={`${MOCK_TOTAL_ROUNDS}회`}
+            value={`${DEFAULT_TOTAL_ROUNDS}회`}
             color="bg-brand-pink"
           />
           <SettingItem
             icon={<Clock className="size-3.5" strokeWidth={2.5} />}
             label="시간"
-            value={`${MOCK_ROUND_SECONDS}초`}
+            value={`${DEFAULT_ROUND_SECONDS}초`}
             color="bg-brand-blue"
           />
           <SettingItem

@@ -1,34 +1,90 @@
 import { create } from "zustand";
 
-import { MOCK_MESSAGES, MOCK_PLAYERS, type ChatMessage, type Player } from "@/lib/mock";
+import type { ChatMessage } from "@/lib/mock";
+import type { Player } from "@/lib/socket";
+import { useRoomStore } from "@/store/roomStore";
+
+/** selecting: 출제자가 단어 고르는 중 · drawing: 그리기·맞히기 진행 중 · idle: 게임 전/후 */
+export type Phase = "idle" | "selecting" | "drawing";
 
 interface GameStore {
-  nickname: string;
-  players: Player[];
+  turnKey: number; // 턴마다 증가 → 캔버스 리마운트(초기화) 키로 사용
+  phase: Phase;
+  round: number;
+  totalRounds: number;
+  drawerId: string;
+  wordLength: number;
+  duration: number; // 현재 단계 제한시간(초)
+  deadline: number; // 종료 시각(epoch ms) → 마운트 시점과 무관하게 남은시간 계산
+  myWord: string; // 출제자 본인이 정한 단어(로컬 표시용, 남에겐 안 감)
+  correctIds: string[]; // 이번 턴 정답자 id (체크 표시용)
   messages: ChatMessage[];
+  ranking: Player[]; // game:ended 최종 순위
 
-  setNickname: (nickname: string) => void;
-  sendMessage: (text: string) => void;
+  onTurn: (p: { round: number; totalRounds: number; drawerId: string; selectDuration: number }) => void;
+  onTurnStart: (p: { wordLength: number; duration: number }) => void;
+  onChat: (p: { nickname: string; text: string }) => void;
+  onCorrect: (p: { playerId: string; nickname: string }) => void;
+  onEnded: (ranking: Player[]) => void;
+  setMyWord: (word: string) => void;
+  reset: () => void;
 }
 
-/**
- * 목업 단계 스토어: 닉네임과 채팅만 실제로 관리한다.
- * 화면 전환/방 코드는 URL(react-router)이 진실의 원천이므로 스토어에서 다루지 않는다.
- * 플레이어/초기 채팅은 더미 데이터이며 소켓 연동 단계에서 교체한다.
- */
-export const useGameStore = create<GameStore>((set, get) => ({
-  nickname: "",
-  players: MOCK_PLAYERS,
-  messages: MOCK_MESSAGES,
+const initial = {
+  turnKey: 0,
+  phase: "idle" as Phase,
+  round: 0,
+  totalRounds: 0,
+  drawerId: "",
+  wordLength: 0,
+  duration: 0,
+  deadline: 0,
+  myWord: "",
+  correctIds: [] as string[],
+  messages: [] as ChatMessage[],
+  ranking: [] as Player[],
+};
 
-  setNickname: (nickname) => set({ nickname }),
+function message(kind: ChatMessage["kind"], text: string, nickname?: string): ChatMessage {
+  return { id: crypto.randomUUID(), kind, text, nickname };
+}
 
-  sendMessage: (text) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    const nickname = get().nickname || "나";
-    set((state) => ({
-      messages: [...state.messages, { id: crypto.randomUUID(), kind: "chat", nickname, text: trimmed }],
+/** 서버 소켓 이벤트로만 갱신되는 게임 진행 상태. 진실의 원천은 서버다. */
+export const useGameStore = create<GameStore>((set) => ({
+  ...initial,
+
+  onTurn: ({ round, totalRounds, drawerId, selectDuration }) => {
+    const drawer = useRoomStore.getState().room?.players.find((p) => p.id === drawerId);
+    set((s) => ({
+      turnKey: s.turnKey + 1,
+      phase: "selecting",
+      round,
+      totalRounds,
+      drawerId,
+      wordLength: 0,
+      duration: selectDuration,
+      deadline: Date.now() + selectDuration * 1000,
+      myWord: "",
+      correctIds: [],
+      messages: [message("system", `${drawer?.nickname ?? "누군가"}님이 그릴 차례예요!`)],
     }));
   },
+
+  onTurnStart: ({ wordLength, duration }) =>
+    set({ phase: "drawing", wordLength, duration, deadline: Date.now() + duration * 1000 }),
+
+  onChat: ({ nickname, text }) =>
+    set((s) => ({ messages: [...s.messages, message("chat", text, nickname)] })),
+
+  onCorrect: ({ playerId, nickname }) =>
+    set((s) => ({
+      correctIds: [...s.correctIds, playerId],
+      messages: [...s.messages, message("correct", `${nickname}님이 정답을 맞혔어요!`, nickname)],
+    })),
+
+  onEnded: (ranking) => set({ phase: "idle", ranking }),
+
+  setMyWord: (myWord) => set({ myWord }),
+
+  reset: () => set({ ...initial }),
 }));

@@ -1,57 +1,96 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router";
-import { Clock, DoorOpen } from "lucide-react";
+import { useNavigate } from "react-router";
+import { Clock, DoorOpen, Pencil } from "lucide-react";
 
 import { CanvasBoard } from "@/components/game/CanvasBoard";
 import { ChatPanel } from "@/components/game/ChatPanel";
 import { PlayerList } from "@/components/game/PlayerList";
 import { Button } from "@/components/ui/button";
-import { MOCK_ROUND, MOCK_ROUND_SECONDS, MOCK_TOTAL_ROUNDS, MOCK_WORD } from "@/lib/mock";
+import { Input } from "@/components/ui/input";
+import { useSocket } from "@/hooks/useSocket";
+import { disconnectSocket } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
+import { useRoomStore } from "@/store/roomStore";
 
-/** 출제자가 그리는 단어를 글자 타일로 보여준다 (추측자에겐 빈 칸으로 내려간다) */
-function WordTiles({ word, revealed }: { word: string; revealed: boolean }) {
+/** 제시어를 글자 타일로 보여준다. 추측자에겐 글자 수만큼 빈 칸으로 보인다. */
+function WordTiles({ length, word }: { length: number; word?: string }) {
   return (
     <div className="flex items-center gap-1.5">
-      {[...word].map((ch, i) => (
+      {Array.from({ length }).map((_, i) => (
         <span
           key={i}
           className="flex size-10 items-center justify-center rounded-lg border-[3px] border-ink bg-brand-yellow text-xl font-black text-ink shadow-[2px_2px_0_0_var(--color-ink)]"
         >
-          {revealed ? ch : ""}
+          {word?.[i] ?? ""}
         </span>
       ))}
-      <span className="ml-1.5 text-sm font-black text-ink">{word.length}글자</span>
+      <span className="ml-1.5 text-sm font-black text-ink">{length}글자</span>
     </div>
   );
 }
 
 export function GameScreen() {
   const navigate = useNavigate();
-  const { code = "" } = useParams();
-  const players = useGameStore((s) => s.players);
-  const [timeLeft, setTimeLeft] = useState(MOCK_ROUND_SECONDS);
+  const { socket } = useSocket();
 
-  // 표시용 카운트다운 (실제 라운드 종료 판정은 추후 서버가 담당)
+  const room = useRoomStore((s) => s.room);
+  const resetRoom = useRoomStore((s) => s.reset);
+  const resetGame = useGameStore((s) => s.reset);
+  const { phase, round, totalRounds, drawerId, wordLength, duration, deadline, myWord, correctIds, turnKey } =
+    useGameStore();
+  const setMyWord = useGameStore((s) => s.setMyWord);
+
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [wordDraft, setWordDraft] = useState("");
+
+  const isDrawer = socket.id === drawerId;
+
   useEffect(() => {
-    if (timeLeft <= 0) return;
-    const id = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
-    return () => clearTimeout(id);
-  }, [timeLeft]);
+    const tick = () => setTimeLeft(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [deadline]);
+
+  const players = (room?.players ?? []).map((p) => ({
+    ...p,
+    isHost: p.id === room?.hostId,
+    isDrawing: p.id === drawerId,
+    hasGuessed: correctIds.includes(p.id),
+  }));
+
+  const submitWord = () => {
+    const word = wordDraft.trim();
+    if (!word) return;
+    socket.emit("game:set-word", { word });
+    setMyWord(word);
+    setWordDraft("");
+  };
+
+  const handleLeave = () => {
+    disconnectSocket();
+    resetGame();
+    resetRoom();
+    navigate("/");
+  };
 
   const urgent = timeLeft <= 10;
-  const progress = (timeLeft / MOCK_ROUND_SECONDS) * 100;
+  const progress = duration > 0 ? (timeLeft / duration) * 100 : 0;
 
   return (
     <div className="brutal-bg h-svh overflow-hidden p-4">
       <div className="mx-auto flex h-full max-w-7xl flex-col gap-3">
         <header className="flex flex-wrap items-center justify-between gap-4 rounded-xl border-[3px] border-ink bg-white px-4 py-3 shadow-hard">
           <div className="rounded-lg border-2 border-ink bg-brand-purple px-3 py-1.5 text-sm font-black text-ink">
-            라운드 {MOCK_ROUND} / {MOCK_TOTAL_ROUNDS}
+            라운드 {round} / {totalRounds}
           </div>
 
-          <WordTiles word={MOCK_WORD} revealed />
+          {phase === "drawing" ? (
+            <WordTiles length={isDrawer ? myWord.length : wordLength} word={isDrawer ? myWord : undefined} />
+          ) : (
+            <div className="text-sm font-black text-ink">출제자가 제시어를 고르는 중…</div>
+          )}
 
           <div className="flex items-center gap-3">
             <div
@@ -63,16 +102,13 @@ export function GameScreen() {
               <Clock className="size-5 text-ink" strokeWidth={2.5} />
               <span className="w-7 text-xl font-black text-ink tabular-nums">{timeLeft}</span>
             </div>
-            <Button size="sm" variant="default" onClick={() => navigate(`/room/${code}/result`)}>
-              결과 보기
-            </Button>
           </div>
         </header>
 
         <div className="h-3 shrink-0 overflow-hidden rounded-full border-2 border-ink bg-white">
           <div
             className={cn(
-              "h-full transition-[width] duration-1000 ease-linear",
+              "h-full transition-[width] duration-300 ease-linear",
               urgent ? "bg-brand-red" : "bg-brand-pink",
             )}
             style={{ width: `${progress}%` }}
@@ -90,22 +126,77 @@ export function GameScreen() {
           </aside>
 
           <section className="min-h-[340px] md:min-h-0">
-            <CanvasBoard canDraw />
+            {phase === "drawing" ? (
+              <CanvasBoard key={turnKey} canDraw={isDrawer} />
+            ) : (
+              <WaitingPanel
+                isDrawer={isDrawer && phase === "selecting"}
+                wordDraft={wordDraft}
+                setWordDraft={setWordDraft}
+                submitWord={submitWord}
+              />
+            )}
           </section>
 
           <aside className="flex min-h-[340px] flex-col rounded-xl border-[3px] border-ink bg-white p-3 shadow-hard md:min-h-0">
-            <ChatPanel />
+            <ChatPanel canGuess={!isDrawer} />
           </aside>
         </div>
 
         <button
           type="button"
-          onClick={() => navigate("/")}
+          onClick={handleLeave}
           className="mx-auto flex shrink-0 items-center gap-1.5 border-2 border-ink bg-white px-3 py-1 text-sm font-black text-ink shadow-[2px_2px_0_0_var(--color-ink)] transition-transform hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
         >
           <DoorOpen className="size-4" strokeWidth={2.5} />방 나가기
         </button>
       </div>
+    </div>
+  );
+}
+
+/** 그리기 전(단어 선택) 화면: 출제자는 단어 입력, 나머지는 대기 안내. */
+function WaitingPanel({
+  isDrawer,
+  wordDraft,
+  setWordDraft,
+  submitWord,
+}: {
+  isDrawer: boolean;
+  wordDraft: string;
+  setWordDraft: (v: string) => void;
+  submitWord: () => void;
+}) {
+  return (
+    <div className="flex h-full min-h-[340px] flex-col items-center justify-center rounded-xl border-[3px] border-ink bg-white p-6 text-center shadow-hard-lg">
+      <span className="mb-4 flex size-14 -rotate-6 items-center justify-center rounded-xl border-[3px] border-ink bg-brand-yellow shadow-hard">
+        <Pencil className="size-7 text-ink" strokeWidth={2.5} />
+      </span>
+      {isDrawer ? (
+        <>
+          <p className="mb-4 text-lg font-black text-ink">그릴 제시어를 정해 주세요!</p>
+          <form
+            className="flex w-full max-w-xs gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitWord();
+            }}
+          >
+            <Input
+              value={wordDraft}
+              onChange={(e) => setWordDraft(e.target.value)}
+              placeholder="예: 고양이"
+              autoComplete="off"
+              autoFocus
+            />
+            <Button type="submit" variant="green">
+              결정
+            </Button>
+          </form>
+        </>
+      ) : (
+        <p className="text-lg font-black text-ink">출제자가 제시어를 고르고 있어요…</p>
+      )}
     </div>
   );
 }

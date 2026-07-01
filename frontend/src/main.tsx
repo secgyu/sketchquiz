@@ -4,6 +4,7 @@ import { createBrowserRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { RoomLayout } from "@/components/RoomLayout";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import { GameScreen } from "@/components/screens/GameScreen";
 import { LobbyScreen } from "@/components/screens/LobbyScreen";
@@ -18,25 +19,14 @@ const router = createBrowserRouter([
     path: "/room/:code",
     element: (
       <RequireAuth>
-        <LobbyScreen />
+        <RoomLayout />
       </RequireAuth>
     ),
-  },
-  {
-    path: "/room/:code/play",
-    element: (
-      <RequireAuth>
-        <GameScreen />
-      </RequireAuth>
-    ),
-  },
-  {
-    path: "/room/:code/result",
-    element: (
-      <RequireAuth>
-        <ResultScreen />
-      </RequireAuth>
-    ),
+    children: [
+      { index: true, element: <LobbyScreen /> },
+      { path: "play", element: <GameScreen /> },
+      { path: "result", element: <ResultScreen /> },
+    ],
   },
 ]);
 

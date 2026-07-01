@@ -1,42 +1,115 @@
-import { useState } from "react";
-import { Eraser, Trash2, Undo2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
+import { Eraser, Trash2 } from "lucide-react";
 
+import { useSocket } from "@/hooks/useSocket";
+import type { DrawStroke } from "@/lib/socket";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const COLORS = [
-  "#15110d",
-  "#ff5c5c",
-  "#ff8a3d",
-  "#ffd23f",
-  "#2bd46b",
-  "#4da3ff",
-  "#b388ff",
-  "#ff5da2",
-  "#8b5e3c",
-  "#ffffff",
-];
-
+const COLORS = ["#15110d", "#ff5c5c", "#ff8a3d", "#ffd23f", "#2bd46b", "#4da3ff", "#b388ff", "#ff5da2", "#8b5e3c", "#ffffff"];
 const BRUSH_SIZES = [4, 8, 14, 22];
+const ERASER_COLOR = "#ffffff"; // 배경이 흰색이므로 흰색으로 덧그려 지운다
 
 interface CanvasBoardProps {
-  /** 출제자만 도구를 쓸 수 있다. 추측자에겐 도구를 숨긴다. */
+  /** 출제자이며 그리기 단계일 때만 그릴 수 있다. 추측자는 도구 없이 수신만 한다. */
   canDraw: boolean;
 }
 
 export function CanvasBoard({ canDraw }: CanvasBoardProps) {
+  const { socket } = useSocket();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingRef = useRef(false);
+  const lastRef = useRef<{ x: number; y: number } | null>(null);
+
   const [color, setColor] = useState(COLORS[0]);
   const [size, setSize] = useState(BRUSH_SIZES[1]);
   const [erasing, setErasing] = useState(false);
 
+  // 좌표는 0~1로 정규화해 서로 다른 캔버스 크기 사이에서도 위치가 맞는다.
+  // ponytail: 굵기(px)는 정규화하지 않아 캔버스 크기가 크게 다르면 두께가 약간 달라질 수 있다.
+  const drawSegment = useCallback((s: DrawStroke) => {
+    const c = canvasRef.current;
+    const ctx = c?.getContext("2d");
+    if (!c || !ctx) return;
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = s.width;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(s.x0 * c.width, s.y0 * c.height);
+    ctx.lineTo(s.x1 * c.width, s.y1 * c.height);
+    ctx.stroke();
+  }, []);
+
+  const clearCanvas = useCallback(() => {
+    const c = canvasRef.current;
+    c?.getContext("2d")?.clearRect(0, 0, c.width, c.height);
+  }, []);
+
+  // 캔버스 백킹 크기를 표시 크기에 맞춘다 (마운트 시 1회; 턴마다 key로 리마운트되며 초기화).
+  useEffect(() => {
+    const c = canvasRef.current;
+    if (!c) return;
+    c.width = c.clientWidth;
+    c.height = c.clientHeight;
+  }, []);
+
+  useEffect(() => {
+    socket.on("draw:stroke", drawSegment);
+    socket.on("draw:clear", clearCanvas);
+    return () => {
+      socket.off("draw:stroke", drawSegment);
+      socket.off("draw:clear", clearCanvas);
+    };
+  }, [socket, drawSegment, clearCanvas]);
+
+  const toNorm = (e: PointerEvent) => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height };
+  };
+
+  const handleDown = (e: PointerEvent) => {
+    if (!canDraw) return;
+    drawingRef.current = true;
+    lastRef.current = toNorm(e);
+  };
+
+  const handleMove = (e: PointerEvent) => {
+    if (!canDraw || !drawingRef.current || !lastRef.current) return;
+    const p = toNorm(e);
+    const stroke: DrawStroke = {
+      x0: lastRef.current.x,
+      y0: lastRef.current.y,
+      x1: p.x,
+      y1: p.y,
+      color: erasing ? ERASER_COLOR : color,
+      width: size,
+    };
+    drawSegment(stroke);
+    socket.emit("draw:stroke", stroke);
+    lastRef.current = p;
+  };
+
+  const stopDrawing = () => {
+    drawingRef.current = false;
+    lastRef.current = null;
+  };
+
+  const handleClear = () => {
+    clearCanvas();
+    socket.emit("draw:clear");
+  };
+
   return (
     <div className="flex h-full flex-col gap-3">
       <div className="relative flex-1 overflow-hidden rounded-xl border-[3px] border-ink bg-white shadow-hard-lg">
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6 text-center text-sm font-bold text-muted-foreground">
-          {canDraw
-            ? "여기에 제시어를 그려 줘! (그리기 연결은 다음 단계)"
-            : "출제자가 그리는 그림이 실시간으로 나타납니다"}
-        </div>
+        <canvas
+          ref={canvasRef}
+          className={cn("h-full w-full touch-none", canDraw ? "cursor-crosshair" : "cursor-default")}
+          onPointerDown={handleDown}
+          onPointerMove={handleMove}
+          onPointerUp={stopDrawing}
+          onPointerLeave={stopDrawing}
+        />
       </div>
 
       {canDraw && (
@@ -94,10 +167,7 @@ export function CanvasBoard({ canDraw }: CanvasBoardProps) {
             >
               <Eraser strokeWidth={2.5} />
             </Button>
-            <Button type="button" size="icon-sm" aria-label="실행 취소">
-              <Undo2 strokeWidth={2.5} />
-            </Button>
-            <Button type="button" size="icon-sm" variant="danger" aria-label="전체 지우기">
+            <Button type="button" size="icon-sm" variant="danger" aria-label="전체 지우기" onClick={handleClear}>
               <Trash2 strokeWidth={2.5} />
             </Button>
           </div>

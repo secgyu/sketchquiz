@@ -1,0 +1,59 @@
+import { useEffect } from "react";
+import { Outlet, useNavigate, useParams } from "react-router";
+
+import { useSocket } from "@/hooks/useSocket";
+import { useGameStore } from "@/store/gameStore";
+import { useRoomStore } from "@/store/roomStore";
+
+/**
+ * /room/:code 하위(대기실·게임·결과)를 감싸는 레이아웃.
+ * 화면을 옮겨도 언마운트되지 않으므로, 방·게임 소켓 리스너를 여기 한 곳에 모은다.
+ * 덕분에 화면 전환 순간에도 이벤트를 놓치지 않는다(첫 game:turn 포함).
+ */
+export function RoomLayout() {
+  const navigate = useNavigate();
+  const { code = "" } = useParams();
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    const room = useRoomStore.getState();
+    const game = useGameStore.getState();
+
+    const onRoomState = room.setRoom;
+    const onRoomError = ({ message }: { message: string }) => room.setError(message);
+    const onTurn = (p: Parameters<typeof game.onTurn>[0]) => {
+      useGameStore.getState().onTurn(p);
+      navigate(`/room/${code}/play`);
+    };
+    const onTurnStart = (p: Parameters<typeof game.onTurnStart>[0]) => useGameStore.getState().onTurnStart(p);
+    const onChat = (p: Parameters<typeof game.onChat>[0]) => useGameStore.getState().onChat(p);
+    const onCorrect = (p: Parameters<typeof game.onCorrect>[0]) => useGameStore.getState().onCorrect(p);
+    const onEnded = ({ ranking }: { ranking: Parameters<typeof game.onEnded>[0] }) => {
+      useGameStore.getState().onEnded(ranking);
+      navigate(`/room/${code}/result`);
+    };
+
+    socket.on("room:state", onRoomState);
+    socket.on("room:error", onRoomError);
+    socket.on("game:turn", onTurn);
+    socket.on("game:turn-start", onTurnStart);
+    socket.on("chat:message", onChat);
+    socket.on("chat:correct", onCorrect);
+    socket.on("game:ended", onEnded);
+
+    // 새로고침·직접 진입 등으로 아직 이 방에 없으면 입장한다(중복 입장은 서버가 무시).
+    if (useRoomStore.getState().room?.code !== code) socket.emit("room:join", { code });
+
+    return () => {
+      socket.off("room:state", onRoomState);
+      socket.off("room:error", onRoomError);
+      socket.off("game:turn", onTurn);
+      socket.off("game:turn-start", onTurnStart);
+      socket.off("chat:message", onChat);
+      socket.off("chat:correct", onCorrect);
+      socket.off("game:ended", onEnded);
+    };
+  }, [socket, code, navigate]);
+
+  return <Outlet />;
+}

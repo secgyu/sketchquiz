@@ -4,7 +4,9 @@ import type { RoomState } from "@/lib/socket";
 
 interface RoomStore {
   room: RoomState | null;
+  error: string | null;
   setRoom: (room: RoomState) => void;
+  setError: (error: string) => void;
   reset: () => void;
 }
 
@@ -14,6 +16,8 @@ interface RoomStore {
  */
 export const useRoomStore = create<RoomStore>((set) => ({
   room: null,
-  setRoom: (room) => set({ room }),
-  reset: () => set({ room: null }),
+  error: null,
+  setRoom: (room) => set({ room, error: null }),
+  setError: (error) => set({ error }),
+  reset: () => set({ room: null, error: null }),
 }));
