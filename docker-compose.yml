@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: sketchquiz-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sketchquiz
+      POSTGRES_PASSWORD: sketchquiz
+      POSTGRES_DB: sketchquiz
+    ports:
+      - "5432:5432"
+    volumes:
+      - sketchquiz-pgdata:/var/lib/postgresql/data
+
+volumes:
+  sketchquiz-pgdata:

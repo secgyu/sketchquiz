@@ -9,3 +9,11 @@ node_modules/
 
 # 개인 작업 메모
 todo.md
+
+# 환경변수 / 시크릿
+.env
+.env.*
+!.env.example
+
+# Prisma 생성 클라이언트
+backend/src/generated/

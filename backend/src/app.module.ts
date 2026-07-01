@@ -4,9 +4,10 @@ import { AppService } from './app.service';
 import { GameGateway } from './game/game.gateway';
 import { GameService } from './game/game.service';
 import { RoomService } from './game/room.service';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
-  imports: [],
+  imports: [PrismaModule],
   controllers: [AppController],
   providers: [AppService, GameGateway, RoomService, GameService],
 })
