@@ -6,3 +6,6 @@
 
 # 의존성 (frontend/backend 각자 .gitignore에서도 처리)
 node_modules/
+
+# 개인 작업 메모
+todo.md
