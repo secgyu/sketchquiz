@@ -60,6 +60,13 @@ export class RoomService {
     return this.rooms.get(code);
   }
 
+  getRoomByPlayer(playerId: string): Room | undefined {
+    for (const room of this.rooms.values()) {
+      if (room.players.some((p) => p.id === playerId)) return room;
+    }
+    return undefined;
+  }
+
   private generateUniqueCode(): string {
     let code: string;
     do {
