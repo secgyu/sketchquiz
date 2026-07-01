@@ -15,6 +15,7 @@ import {
   WORD_SELECT_SECONDS,
 } from './game.service';
 import type {
+  ChatMessagePayload,
   CreateRoomPayload,
   DrawStroke,
   JoinRoomPayload,
@@ -151,6 +152,35 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const room = this.roomService.getRoomByPlayer(client.id);
     if (!room?.game || room.game.drawerId !== client.id) return;
     client.to(room.code).emit('draw:clear');
+  }
+
+  @SubscribeMessage('chat:message')
+  handleChat(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() { text }: ChatMessagePayload,
+  ) {
+    const room = this.roomService.getRoomByPlayer(client.id);
+    const player = room?.players.find((p) => p.id === client.id);
+    if (!room || !player) return;
+
+    const result = this.gameService.checkGuess(room, client.id, text);
+    if (result.status === 'already') return; // 정답 재입력은 무시 (단어 노출 방지)
+
+    if (result.status === 'correct') {
+      this.server.to(room.code).emit('chat:correct', {
+        playerId: player.id,
+        nickname: player.nickname,
+      });
+      this.server.to(room.code).emit('room:state', this.toState(room));
+      if (result.allGuessed) this.advanceTurn(room.code);
+      return;
+    }
+
+    this.server.to(room.code).emit('chat:message', {
+      playerId: player.id,
+      nickname: player.nickname,
+      text: text.trim(),
+    });
   }
 
   /** 턴 시작을 방에 알리고 출제자에게 단어 입력을 요청한다. 단어 입력 제한시간을 건다. */

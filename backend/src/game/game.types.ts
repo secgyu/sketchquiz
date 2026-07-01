@@ -14,7 +14,13 @@ export interface GameState {
   turnIndex: number; // 현재 라운드 내 턴 위치 (order 인덱스)
   drawerId: string; // 현재 출제자 socket id
   word: string; // 현재 제시어 (서버 비밀)
+  correctGuessers: string[]; // 이번 턴에 정답을 맞힌 플레이어 id (순서 = 점수 차등)
 }
+
+export type GuessResult =
+  | { status: 'chat' } // 일반 채팅으로 처리
+  | { status: 'already' } // 이미 맞힌 사람의 정답 재입력 (무시)
+  | { status: 'correct'; allGuessed: boolean };
 
 export interface Room {
   code: string;
@@ -41,6 +47,10 @@ export interface JoinRoomPayload {
 
 export interface SetWordPayload {
   word: string;
+}
+
+export interface ChatMessagePayload {
+  text: string;
 }
 
 /** 한 획의 선분. 서버는 내용을 해석하지 않고 방에 그대로 중계한다. */

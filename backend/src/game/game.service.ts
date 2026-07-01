@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { GameState, Room } from './game.types';
+import type { GameState, GuessResult, Room } from './game.types';
 
 export const ROUND_SECONDS = 80; // 그리기/맞히기 제한시간
 export const WORD_SELECT_SECONDS = 20; // 출제자 단어 입력 제한시간
 export const DEFAULT_TOTAL_ROUNDS = 3;
+const DRAWER_POINTS = 30; // 정답자 1명당 출제자에게 주는 점수
 
 /**
  * 게임 진행 상태를 계산하는 순수 로직. 소켓/타이머는 게이트웨이가 담당한다.
@@ -22,6 +23,7 @@ export class GameService {
       turnIndex: 0,
       drawerId: order[0],
       word: '',
+      correctGuessers: [],
     };
     room.game = game;
     return game;
@@ -43,6 +45,37 @@ export class GameService {
     }
     game.drawerId = game.order[game.turnIndex];
     game.word = '';
+    game.correctGuessers = [];
     return game;
+  }
+
+  /**
+   * 채팅 메시지가 정답인지 판정하고, 정답이면 점수를 반영한다.
+   * 정답이 아니거나 게임 중이 아니면 'chat'(일반 채팅)로 처리하라는 뜻이다.
+   */
+  checkGuess(room: Room, guesserId: string, text: string): GuessResult {
+    const game = room.game;
+    const guess = text.trim();
+    if (!game || !game.word || !guess) return { status: 'chat' };
+    if (guesserId === game.drawerId) return { status: 'chat' };
+    if (guess.toLowerCase() !== game.word.toLowerCase())
+      return { status: 'chat' };
+    if (game.correctGuessers.includes(guesserId)) return { status: 'already' };
+
+    const order = game.correctGuessers.length; // 이번 턴 정답 순서 (0-based)
+    this.award(room, guesserId, Math.max(40, 100 - order * 20));
+    this.award(room, game.drawerId, DRAWER_POINTS);
+    game.correctGuessers.push(guesserId);
+
+    const nonDrawerCount = room.players.length - 1;
+    return {
+      status: 'correct',
+      allGuessed: game.correctGuessers.length >= nonDrawerCount,
+    };
+  }
+
+  private award(room: Room, playerId: string, points: number) {
+    const player = room.players.find((p) => p.id === playerId);
+    if (player) player.score += points;
   }
 }
