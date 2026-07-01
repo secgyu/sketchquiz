@@ -1,31 +1,33 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Pencil } from "lucide-react";
+import { LogOut, Pencil } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { generateRoomCode } from "@/lib/mock";
-import { useGameStore } from "@/store/gameStore";
+import { useAuthStore } from "@/store/authStore";
 
 export function StartScreen() {
   const navigate = useNavigate();
-  const nickname = useGameStore((s) => s.nickname);
-  const setNickname = useGameStore((s) => s.setNickname);
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
 
   const [roomCode, setRoomCode] = useState("");
   const [error, setError] = useState("");
-  const canStart = nickname.trim().length > 0;
 
   const handleCreate = () => {
-    if (!canStart) return setError("닉네임을 먼저 입력해 줘!");
     navigate(`/room/${generateRoomCode()}`);
   };
 
   const handleJoin = () => {
-    if (!canStart) return setError("닉네임을 먼저 입력해 줘!");
     if (roomCode.trim().length < 4) return setError("방 코드 4자리를 입력해 줘!");
     navigate(`/room/${roomCode.trim()}`);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -47,24 +49,22 @@ export function StartScreen() {
         </div>
 
         <div className="mt-8 space-y-5">
-          <div className="space-y-2">
-            <label htmlFor="nickname" className="text-sm font-black uppercase tracking-wide">
-              닉네임
-            </label>
+          <div className="flex items-center justify-between gap-3 rounded-xl border-[3px] border-ink bg-brand-yellow px-4 py-3 shadow-hard">
             <div className="flex items-center gap-3">
-              {nickname.trim() && <Avatar nickname={nickname} />}
-              <Input
-                id="nickname"
-                value={nickname}
-                onChange={(e) => {
-                  setNickname(e.target.value);
-                  setError("");
-                }}
-                maxLength={12}
-                placeholder="이름을 입력해!"
-                autoComplete="off"
-              />
+              {user && <Avatar nickname={user.username} />}
+              <div className="text-left">
+                <p className="text-xs font-bold text-ink/70">반가워요</p>
+                <p className="text-lg font-black text-ink">{user?.username}</p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="로그아웃"
+              className="press flex size-10 items-center justify-center rounded-lg border-[3px] border-ink bg-white text-ink"
+            >
+              <LogOut className="size-5" strokeWidth={2.5} />
+            </button>
           </div>
 
           <div className="space-y-2">
