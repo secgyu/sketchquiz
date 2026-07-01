@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Clock, Globe, Hash, Lock, Sparkles, Users } from "lucide-react";
+import { ArrowLeft, Clock, Globe, Hash, Loader2, Lock, Sparkles, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,10 @@ import { useSocket } from "@/hooks/useSocket";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { useRoomStore } from "@/store/roomStore";
+
+const CREATE_TIMEOUT_MS = 8000;
+// 생성이 즉시 끝나도 스피너가 최소 이만큼은 보이도록 해 "눌린 느낌"을 준다.
+const MIN_SPINNER_MS = 400;
 
 const ROUND_OPTIONS = [3, 5, 7];
 const TIME_OPTIONS = [60, 80, 100];
@@ -58,7 +62,7 @@ function OptionRow({
 
 export function CreateRoomScreen() {
   const navigate = useNavigate();
-  const { socket } = useSocket();
+  const { socket, connected } = useSocket();
   const user = useAuthStore((s) => s.user);
   const setRoom = useRoomStore((s) => s.setRoom);
 
@@ -69,18 +73,31 @@ export function CreateRoomScreen() {
   const [maxPlayers, setMaxPlayers] = useState(PLAYER_OPTIONS[2]);
   const [error, setError] = useState("");
   // 서버가 코드를 발급한 뒤에야 대기실로 이동할 수 있으므로 응답을 기다린다.
+  const [creating, setCreating] = useState(false);
   const creatingRef = useRef(false);
+  const startedAtRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const stopCreating = () => {
+    creatingRef.current = false;
+    setCreating(false);
+    clearTimeout(timerRef.current);
+  };
 
   useEffect(() => {
     const onRoomState = (state: Parameters<typeof setRoom>[0]) => {
       setRoom(state);
       if (creatingRef.current) {
-        creatingRef.current = false;
-        navigate(`/room/${state.code}`);
+        clearTimeout(timerRef.current); // 8초 실패 안전장치 취소
+        const wait = Math.max(0, MIN_SPINNER_MS - (performance.now() - startedAtRef.current));
+        timerRef.current = setTimeout(() => {
+          stopCreating();
+          navigate(`/room/${state.code}`);
+        }, wait);
       }
     };
     const onRoomError = ({ message }: { message: string }) => {
-      creatingRef.current = false;
+      stopCreating();
       setError(message);
     };
     socket.on("room:state", onRoomState);
@@ -88,12 +105,22 @@ export function CreateRoomScreen() {
     return () => {
       socket.off("room:state", onRoomState);
       socket.off("room:error", onRoomError);
+      clearTimeout(timerRef.current);
     };
   }, [socket, setRoom, navigate]);
 
   const handleCreate = () => {
+    if (creating) return;
     setError("");
     creatingRef.current = true;
+    setCreating(true);
+    startedAtRef.current = performance.now();
+    // 서버 응답이 없을 때 버튼이 영원히 잠기지 않도록 안전 타임아웃을 건다.
+    timerRef.current = setTimeout(() => {
+      stopCreating();
+      setError("방 만들기에 실패했어요. 연결 상태를 확인하고 다시 시도해 주세요.");
+    }, CREATE_TIMEOUT_MS);
+    // 아직 연결 전이어도 Socket.IO가 emit을 버퍼링했다가 연결되면 자동 전송한다.
     // ponytail: 옵션(name/isPublic/rounds/seconds/maxPlayers)은 백엔드 room:create 확장 시 payload로 전달한다.
     socket.emit("room:create");
   };
@@ -166,8 +193,22 @@ export function CreateRoomScreen() {
           </div>
 
           <OptionRow icon={Hash} label="라운드" options={ROUND_OPTIONS} value={rounds} unit="회" onChange={setRounds} />
-          <OptionRow icon={Clock} label="라운드당 시간" options={TIME_OPTIONS} value={seconds} unit="초" onChange={setSeconds} />
-          <OptionRow icon={Users} label="최대 인원" options={PLAYER_OPTIONS} value={maxPlayers} unit="명" onChange={setMaxPlayers} />
+          <OptionRow
+            icon={Clock}
+            label="라운드당 시간"
+            options={TIME_OPTIONS}
+            value={seconds}
+            unit="초"
+            onChange={setSeconds}
+          />
+          <OptionRow
+            icon={Users}
+            label="최대 인원"
+            options={PLAYER_OPTIONS}
+            value={maxPlayers}
+            unit="명"
+            onChange={setMaxPlayers}
+          />
 
           {error && (
             <p
@@ -178,9 +219,17 @@ export function CreateRoomScreen() {
             </p>
           )}
 
-          <Button size="lg" variant="pink" onClick={handleCreate} className="w-full text-white">
-            <Sparkles strokeWidth={2.5} />
-            방 만들기
+          <Button size="lg" variant="pink" onClick={handleCreate} disabled={creating} className="w-full text-white">
+            {creating ? (
+              <>
+                <Loader2 className="animate-spin" strokeWidth={2.5} />
+                {connected ? "만드는 중…" : "연결 중…"}
+              </>
+            ) : (
+              <>
+                <Sparkles strokeWidth={2.5} />방 만들기
+              </>
+            )}
           </Button>
         </div>
       </main>

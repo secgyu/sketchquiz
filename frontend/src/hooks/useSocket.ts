@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { getSocket, type AppSocket } from "@/lib/socket";
 import { useAuthStore } from "@/store/authStore";
+import { toast } from "@/store/toastStore";
 
 interface UseSocket {
   socket: AppSocket;
@@ -24,7 +25,10 @@ export function useSocket(): UseSocket {
 
     const onConnect = () => setConnected(true);
     const onDisconnect = () => setConnected(false);
-    const onAuthError = () => logout();
+    const onAuthError = () => {
+      toast.error("세션이 만료됐어요. 다시 로그인해 주세요.");
+      logout();
+    };
 
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);

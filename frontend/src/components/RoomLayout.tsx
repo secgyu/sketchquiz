@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { Outlet, useNavigate, useParams } from "react-router";
 
+import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { useSocket } from "@/hooks/useSocket";
 import { useGameStore } from "@/store/gameStore";
 import { useRoomStore } from "@/store/roomStore";
+import { toast } from "@/store/toastStore";
 
 /**
  * /room/:code 하위(대기실·게임·결과)를 감싸는 레이아웃.
@@ -20,7 +22,10 @@ export function RoomLayout() {
     const game = useGameStore.getState();
 
     const onRoomState = room.setRoom;
-    const onRoomError = ({ message }: { message: string }) => room.setError(message);
+    const onRoomError = ({ message }: { message: string }) => {
+      room.setError(message);
+      toast.error(message); // 게임 중처럼 인라인 에러가 안 보이는 화면에서도 알려준다.
+    };
     const onTurn = (p: Parameters<typeof game.onTurn>[0]) => {
       useGameStore.getState().onTurn(p);
       navigate(`/room/${code}/play`);
@@ -62,5 +67,10 @@ export function RoomLayout() {
     };
   }, [socket, code, navigate]);
 
-  return <Outlet />;
+  return (
+    <>
+      <ConnectionBanner />
+      <Outlet />
+    </>
+  );
 }

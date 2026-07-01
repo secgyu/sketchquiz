@@ -5,6 +5,7 @@ import { RouterProvider } from "react-router/dom";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RoomLayout } from "@/components/RoomLayout";
+import { RootLayout } from "@/components/RootLayout";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import { CreateRoomScreen } from "@/components/screens/CreateRoomScreen";
 import { GameScreen } from "@/components/screens/GameScreen";
@@ -15,35 +16,40 @@ import { StartScreen } from "@/components/screens/StartScreen";
 import "./index.css";
 
 const router = createBrowserRouter([
-  { path: "/", element: <StartScreen /> },
-  { path: "/login", element: <AuthScreen /> },
   {
-    path: "/rooms",
-    element: (
-      <RequireAuth>
-        <RoomBrowserScreen />
-      </RequireAuth>
-    ),
-  },
-  {
-    path: "/create",
-    element: (
-      <RequireAuth>
-        <CreateRoomScreen />
-      </RequireAuth>
-    ),
-  },
-  {
-    path: "/room/:code",
-    element: (
-      <RequireAuth>
-        <RoomLayout />
-      </RequireAuth>
-    ),
+    element: <RootLayout />,
     children: [
-      { index: true, element: <LobbyScreen /> },
-      { path: "play", element: <GameScreen /> },
-      { path: "result", element: <ResultScreen /> },
+      { path: "/", element: <StartScreen /> },
+      { path: "/login", element: <AuthScreen /> },
+      {
+        path: "/rooms",
+        element: (
+          <RequireAuth>
+            <RoomBrowserScreen />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "/create",
+        element: (
+          <RequireAuth>
+            <CreateRoomScreen />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "/room/:code",
+        element: (
+          <RequireAuth>
+            <RoomLayout />
+          </RequireAuth>
+        ),
+        children: [
+          { index: true, element: <LobbyScreen /> },
+          { path: "play", element: <GameScreen /> },
+          { path: "result", element: <ResultScreen /> },
+        ],
+      },
     ],
   },
 ]);
