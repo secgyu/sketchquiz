@@ -6,6 +6,7 @@ import { RouterProvider } from "react-router/dom";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RoomLayout } from "@/components/RoomLayout";
 import { AuthScreen } from "@/components/screens/AuthScreen";
+import { CreateRoomScreen } from "@/components/screens/CreateRoomScreen";
 import { GameScreen } from "@/components/screens/GameScreen";
 import { LobbyScreen } from "@/components/screens/LobbyScreen";
 import { ResultScreen } from "@/components/screens/ResultScreen";
@@ -21,6 +22,14 @@ const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <RoomBrowserScreen />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/create",
+    element: (
+      <RequireAuth>
+        <CreateRoomScreen />
       </RequireAuth>
     ),
   },

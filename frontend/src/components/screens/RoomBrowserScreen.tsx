@@ -92,32 +92,27 @@ function RoomCard({ room, index, onJoin }: { room: PublicRoom; index: number; on
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <span className="rounded-md border-2 border-ink bg-white px-2 py-1 font-mono text-xs font-black tracking-widest text-ink">
-          {room.code}
-        </span>
-        <Button
-          variant={joinable ? "blue" : "default"}
-          size="sm"
-          className="ml-auto"
-          disabled={full && room.status === "waiting"}
-          onClick={() => onJoin(room)}
-        >
-          {joinable ? (
-            <>
-              <LogIn strokeWidth={2.5} />
-              입장
-            </>
-          ) : full && room.status === "waiting" ? (
-            "가득 참"
-          ) : (
-            <>
-              <Eye strokeWidth={2.5} />
-              관전
-            </>
-          )}
-        </Button>
-      </div>
+      <Button
+        variant={joinable ? "blue" : "default"}
+        size="sm"
+        className="w-full"
+        disabled={full && room.status === "waiting"}
+        onClick={() => onJoin(room)}
+      >
+        {joinable ? (
+          <>
+            <LogIn strokeWidth={2.5} />
+            입장
+          </>
+        ) : full && room.status === "waiting" ? (
+          "가득 참"
+        ) : (
+          <>
+            <Eye strokeWidth={2.5} />
+            관전
+          </>
+        )}
+      </Button>
     </li>
   );
 }
@@ -136,11 +131,7 @@ export function RoomBrowserScreen() {
     const list = rooms.filter((room) => {
       if (!matchesFilter(room, filter)) return false;
       if (!q) return true;
-      return (
-        room.name.toLowerCase().includes(q) ||
-        room.host.toLowerCase().includes(q) ||
-        room.code.toLowerCase().includes(q)
-      );
+      return room.name.toLowerCase().includes(q) || room.host.toLowerCase().includes(q);
     });
     return [...list].sort((a, b) =>
       sort === "population" ? b.count - a.count || b.createdAt - a.createdAt : b.createdAt - a.createdAt,
@@ -197,7 +188,7 @@ export function RoomBrowserScreen() {
               <Zap strokeWidth={2.5} />
               빠른 입장
             </Button>
-            <Button variant="pink" size="lg" className="text-white" onClick={() => navigate("/")}>
+            <Button variant="pink" size="lg" className="text-white" onClick={() => navigate("/create")}>
               <Plus strokeWidth={2.5} />새 공개방 만들기
             </Button>
           </div>
@@ -212,7 +203,7 @@ export function RoomBrowserScreen() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="방 이름 · 방장 · 코드 검색"
+              placeholder="방 이름 · 방장 검색"
               autoComplete="off"
               className="pl-9"
             />
@@ -268,7 +259,7 @@ export function RoomBrowserScreen() {
               <p className="text-lg font-black text-ink">조건에 맞는 방이 없어요</p>
               <p className="text-sm font-bold text-muted-foreground">검색어를 바꾸거나 새 공개방을 만들어보세요!</p>
             </div>
-            <Button variant="green" size="lg" onClick={() => navigate("/")}>
+            <Button variant="green" size="lg" onClick={() => navigate("/create")}>
               <Plus strokeWidth={2.5} />새 공개방 만들기
             </Button>
           </div>
