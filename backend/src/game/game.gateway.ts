@@ -17,12 +17,15 @@ import type {
   CreateRoomPayload,
   DrawStroke,
   JoinRoomPayload,
+  PublicRoomSummary,
   Room,
   RoomState,
   SetWordPayload,
   SocketData,
 } from './game.types';
 import { RoomService } from './room.service';
+
+const LOBBY_ROOM = 'lobby'; // 공개방 목록을 구독하는 소켓들이 모이는 가상 방
 
 /**
  * 게임 실시간 통신 게이트웨이.
@@ -66,12 +69,24 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const wasDrawer =
       this.roomService.getRoomByPlayer(client.id)?.game?.drawerId === client.id;
     const room = this.roomService.leaveRoom(client.id);
+    this.emitLobbyUpdate(); // 방 삭제·인원 변동 모두 반영 (room이 null이어도 안전)
     if (!room) return;
 
     if (nickname) this.server.to(room.code).emit('player:left', { nickname });
     this.server.to(room.code).emit('room:state', this.toState(room));
     // 진행 중인데 출제자가 나갔으면 다음 턴으로 넘긴다.
     if (wasDrawer && room.game) this.advanceTurn(room.code);
+  }
+
+  @SubscribeMessage('lobby:join')
+  handleLobbyJoin(@ConnectedSocket() client: Socket): PublicRoomSummary[] {
+    void client.join(LOBBY_ROOM);
+    return this.roomService.listPublicRooms(); // 최초 목록은 ack로 전달
+  }
+
+  @SubscribeMessage('lobby:leave')
+  handleLobbyLeave(@ConnectedSocket() client: Socket) {
+    void client.leave(LOBBY_ROOM);
   }
 
   @SubscribeMessage('room:create')
@@ -85,6 +100,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       options,
     );
     void client.join(room.code);
+    this.emitLobbyUpdate(); // 공개방이면 목록에 즉시 노출
     // 반환값은 클라이언트가 넘긴 ack 콜백으로 전달된다(요청-응답 1:1).
     return this.toState(room);
   }
@@ -102,6 +118,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
       void client.join(room.code);
       this.server.to(room.code).emit('room:state', this.toState(room));
+      this.emitLobbyUpdate(); // 인원 변동 반영
     } catch (error) {
       const message =
         error instanceof Error ? error.message : '방 입장에 실패했어요.';
@@ -125,6 +142,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
     this.gameService.start(room);
+    this.emitLobbyUpdate(); // 대기중 → 게임중 상태 반영
     this.announceTurn(room);
   }
 
@@ -228,6 +246,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (game.status === 'ended') {
       this.clearTurnTimer(code);
       room.game = undefined;
+      this.emitLobbyUpdate(); // 게임중 → 대기중 상태 반영
       const ranking = [...room.players].sort((a, b) => b.score - a.score);
       this.server.to(code).emit('game:ended', { ranking });
       return;
@@ -249,6 +268,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       clearTimeout(timer);
       this.turnTimers.delete(code);
     }
+  }
+
+  /** 로비를 구독 중인 소켓들에게 최신 공개방 목록을 브로드캐스트한다. */
+  private emitLobbyUpdate() {
+    this.server
+      .to(LOBBY_ROOM)
+      .emit('room:list', this.roomService.listPublicRooms());
   }
 
   private toState(room: Room): RoomState {

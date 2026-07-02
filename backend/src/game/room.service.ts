@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { CreateRoomPayload, Room } from './game.types';
+import type { CreateRoomPayload, PublicRoomSummary, Room } from './game.types';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 0/O/1/I 제외
 
@@ -56,10 +56,27 @@ export class RoomService {
         options.roundSeconds ?? ROOM_DEFAULTS.roundSeconds,
         ROOM_LIMITS.roundSeconds,
       ),
+      createdAt: Date.now(),
       players: [{ id: hostId, nickname, score: 0 }],
     };
     this.rooms.set(code, room);
     return room;
+  }
+
+  /** 공개방 목록. 비공개방은 제외하고, 진행중/대기중 상태를 함께 담는다. */
+  listPublicRooms(): PublicRoomSummary[] {
+    return [...this.rooms.values()]
+      .filter((room) => room.isPublic)
+      .map((room) => ({
+        code: room.code,
+        name: room.name,
+        host: room.players.find((p) => p.id === room.hostId)?.nickname ?? '',
+        count: room.players.length,
+        max: room.maxPlayers,
+        status: room.game ? 'playing' : 'waiting',
+        round: room.totalRounds,
+        createdAt: room.createdAt,
+      }));
   }
 
   /**

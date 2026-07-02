@@ -66,4 +66,30 @@ describe('RoomService', () => {
       );
     });
   });
+
+  describe('listPublicRooms', () => {
+    it('비공개방은 제외하고 공개방만 요약한다', () => {
+      const pub = service.createRoom('h1', 'Alice', { isPublic: true });
+      service.createRoom('h2', 'Bob', { isPublic: false });
+
+      const list = service.listPublicRooms();
+      expect(list).toHaveLength(1);
+      expect(list[0]).toMatchObject({
+        code: pub.code,
+        name: 'Alice님의 방',
+        host: 'Alice',
+        count: 1,
+        status: 'waiting',
+      });
+    });
+
+    it('인원 수와 정원을 정확히 담는다', () => {
+      const room = service.createRoom('h1', 'Alice', { maxPlayers: 4 });
+      service.joinRoom(room.code, 'p2', 'Bob');
+
+      const [summary] = service.listPublicRooms();
+      expect(summary.count).toBe(2);
+      expect(summary.max).toBe(4);
+    });
+  });
 });

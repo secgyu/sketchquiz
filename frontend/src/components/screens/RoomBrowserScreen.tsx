@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, Clock, Eye, Hash, LogIn, Plus, RefreshCw, Search, Users, Zap } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSocket } from "@/hooks/useSocket";
 import { cn } from "@/lib/utils";
 import { useLobbyStore, type PublicRoom, type RoomStatus } from "@/store/lobbyStore";
 
@@ -119,12 +120,30 @@ function RoomCard({ room, index, onJoin }: { room: PublicRoom; index: number; on
 
 export function RoomBrowserScreen() {
   const navigate = useNavigate();
+  const { socket } = useSocket();
   const rooms = useLobbyStore((s) => s.rooms);
+  const setRooms = useLobbyStore((s) => s.setRooms);
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
   const [sort, setSort] = useState<SortKey>("recent");
   const [refreshing, setRefreshing] = useState(false);
+
+  // 로비 방에 합류해 최초 목록(ack)을 받고, 이후 변경은 room:list 브로드캐스트로 실시간 반영한다.
+  useEffect(() => {
+    const onRoomList = (list: PublicRoom[]) => setRooms(list);
+    const requestList = () => socket.emit("lobby:join", onRoomList);
+
+    socket.on("room:list", onRoomList);
+    socket.on("connect", requestList); // 재연결 시 로비 재합류
+    if (socket.connected) requestList();
+
+    return () => {
+      socket.emit("lobby:leave");
+      socket.off("room:list", onRoomList);
+      socket.off("connect", requestList);
+    };
+  }, [socket, setRooms]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -146,9 +165,13 @@ export function RoomBrowserScreen() {
   }, [rooms]);
 
   const handleRefresh = () => {
-    // ponytail: 백엔드 연동 전이라 실제 갱신은 없고 시각 피드백만 준다.
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 600);
+    socket.emit("lobby:join", (list) => {
+      setRooms(list);
+      setRefreshing(false);
+    });
+    // 응답이 안 와도 스피너가 멈추도록 안전장치를 둔다.
+    setTimeout(() => setRefreshing(false), 1000);
   };
 
   const handleJoin = (room: PublicRoom) => navigate(`/room/${room.code}`);

@@ -32,8 +32,21 @@ export interface Room {
   maxPlayers: number;
   totalRounds: number;
   roundSeconds: number;
+  createdAt: number; // 생성 시각(epoch ms) — 목록 최신순 정렬용
   players: Player[];
   game?: GameState;
+}
+
+/** 공개방 목록에 노출되는 방 요약 (비밀은 담지 않는다) */
+export interface PublicRoomSummary {
+  code: string;
+  name: string;
+  host: string; // 방장 닉네임
+  count: number; // 현재 인원
+  max: number; // 정원
+  status: RoomStatus;
+  round: number; // 총 라운드 수
+  createdAt: number;
 }
 
 /** 클라이언트로 내려보내는 방 상태 스냅샷 */

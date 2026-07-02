@@ -33,6 +33,18 @@ export interface CreateRoomOptions {
   roundSeconds: number;
 }
 
+/** 공개방 목록 항목 (game.types.PublicRoomSummary와 동일) */
+export interface PublicRoom {
+  code: string;
+  name: string;
+  host: string; // 방장 닉네임
+  count: number; // 현재 인원
+  max: number; // 정원
+  status: RoomStatus;
+  round: number; // 총 라운드 수
+  createdAt: number; // 생성 시각(epoch ms) — 최신순 정렬용
+}
+
 export interface DrawStroke {
   x0: number;
   y0: number;
@@ -56,6 +68,7 @@ export interface ServerToClientEvents {
   "chat:message": (payload: { playerId: string; nickname: string; text: string }) => void;
   "player:left": (payload: { nickname: string }) => void;
   "game:ended": (payload: { ranking: Player[] }) => void;
+  "room:list": (rooms: PublicRoom[]) => void;
 }
 
 /** 클라이언트 → 서버 이벤트 (game.gateway.ts의 @SubscribeMessage와 1:1 대응) */
@@ -67,6 +80,8 @@ export interface ClientToServerEvents {
   "draw:stroke": (stroke: DrawStroke) => void;
   "draw:clear": () => void;
   "chat:message": (payload: { text: string }) => void;
+  "lobby:join": (ack: (rooms: PublicRoom[]) => void) => void;
+  "lobby:leave": () => void;
 }
 
 export type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
