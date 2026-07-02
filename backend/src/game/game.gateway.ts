@@ -11,7 +11,11 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import type { JwtPayload } from '../auth/jwt.strategy';
-import { GameService, WORD_SELECT_SECONDS } from './game.service';
+import {
+  GameService,
+  TURN_END_SECONDS,
+  WORD_SELECT_SECONDS,
+} from './game.service';
 import type {
   ChatMessagePayload,
   CreateRoomPayload,
@@ -74,8 +78,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (nickname) this.server.to(room.code).emit('player:left', { nickname });
     this.server.to(room.code).emit('room:state', this.toState(room));
-    // 진행 중인데 출제자가 나갔으면 다음 턴으로 넘긴다.
-    if (wasDrawer && room.game) this.advanceTurn(room.code);
+    // 진행 중인데 출제자가 나갔으면 턴을 마무리하고 다음으로 넘긴다.
+    if (wasDrawer && room.game) this.endTurn(room.code);
   }
 
   @SubscribeMessage('lobby:join')
@@ -233,7 +237,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         nickname: player.nickname,
       });
       this.server.to(room.code).emit('room:state', this.toState(room));
-      if (result.allGuessed) this.advanceTurn(room.code);
+      if (result.allGuessed) this.endTurn(room.code);
       return;
     }
 
@@ -261,7 +265,45 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.setTurnTimer(room.code, WORD_SELECT_SECONDS);
   }
 
-  private advanceTurn(code: string) {
+  /**
+   * 턴이 끝났을 때(모두 정답·시간초과·출제자 이탈) 정답을 공개하고 잠시 뒤 다음 턴으로 넘긴다.
+   * 단어가 정해지지 않은 턴(출제자 미선정)은 공개할 게 없어 곧바로 넘긴다.
+   */
+  private endTurn(code: string) {
+    const room = this.roomService.getRoom(code);
+    if (!room?.game) {
+      this.clearTurnTimer(code);
+      return;
+    }
+    const game = room.game;
+    this.clearTurnTimer(code);
+
+    if (!game.word) {
+      this.advanceToNext(code);
+      return;
+    }
+
+    const correctGuessers = game.correctGuessers
+      .map((id) => room.players.find((p) => p.id === id)?.nickname)
+      .filter((nickname): nickname is string => !!nickname);
+
+    this.server.to(code).emit('game:turn-end', {
+      word: game.word,
+      correctGuessers,
+      players: room.players.map((p) => ({
+        nickname: p.nickname,
+        score: p.score,
+      })),
+      duration: TURN_END_SECONDS,
+    });
+
+    this.turnTimers.set(
+      code,
+      setTimeout(() => this.advanceToNext(code), TURN_END_SECONDS * 1000),
+    );
+  }
+
+  private advanceToNext(code: string) {
     const room = this.roomService.getRoom(code);
     if (!room?.game) {
       this.clearTurnTimer(code);
@@ -283,7 +325,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.clearTurnTimer(code);
     this.turnTimers.set(
       code,
-      setTimeout(() => this.advanceTurn(code), seconds * 1000),
+      setTimeout(() => this.endTurn(code), seconds * 1000),
     );
   }
 

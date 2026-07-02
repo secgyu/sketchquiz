@@ -4,8 +4,15 @@ import type { ChatMessage } from "@/lib/mock";
 import type { Player } from "@/lib/socket";
 import { useRoomStore } from "@/store/roomStore";
 
-/** selecting: 출제자가 단어 고르는 중 · drawing: 그리기·맞히기 진행 중 · idle: 게임 전/후 */
-export type Phase = "idle" | "selecting" | "drawing";
+/** selecting: 출제자가 단어 고르는 중 · drawing: 진행 중 · reveal: 턴 종료 정답 공개 · idle: 게임 전/후 */
+export type Phase = "idle" | "selecting" | "drawing" | "reveal";
+
+/** 턴 종료 시점의 정답 공개 정보 */
+export interface TurnReveal {
+  word: string;
+  correctGuessers: string[]; // 정답자 닉네임
+  players: { nickname: string; score: number }[]; // 현재까지 점수판
+}
 
 interface GameStore {
   turnKey: number; // 턴마다 증가 → 캔버스 리마운트(초기화) 키로 사용
@@ -21,9 +28,11 @@ interface GameStore {
   messages: ChatMessage[];
   ranking: Player[]; // game:ended 최종 순위
   correctFlash: number; // 본인이 정답을 맞힌 순간 증가 → "정답!" 오버레이 트리거
+  reveal: TurnReveal | null; // 턴 종료 공개 오버레이 (없으면 null)
 
   onTurn: (p: { round: number; totalRounds: number; drawerId: string; selectDuration: number }) => void;
   onTurnStart: (p: { wordLength: number; duration: number }) => void;
+  onTurnEnd: (p: TurnReveal & { duration: number }) => void;
   onChat: (p: { nickname: string; text: string }) => void;
   onCorrect: (p: { playerId: string; nickname: string }) => void;
   onPlayerLeft: (nickname: string) => void;
@@ -47,6 +56,7 @@ const initial = {
   messages: [] as ChatMessage[],
   ranking: [] as Player[],
   correctFlash: 0,
+  reveal: null as TurnReveal | null,
 };
 
 function message(kind: ChatMessage["kind"], text: string, nickname?: string): ChatMessage {
@@ -71,6 +81,7 @@ export const useGameStore = create<GameStore>((set) => ({
       deadline: Date.now() + selectDuration * 1000,
       myWord: "",
       correctIds: [],
+      reveal: null, // 이전 턴 공개 오버레이 제거
       // 채팅 로그는 게임 내내 유지하고, 새 게임(직전 phase가 idle)일 때만 비운다.
       messages: s.phase === "idle" ? [turnMsg] : [...s.messages, turnMsg],
     }));
@@ -78,6 +89,15 @@ export const useGameStore = create<GameStore>((set) => ({
 
   onTurnStart: ({ wordLength, duration }) =>
     set({ phase: "drawing", wordLength, duration, deadline: Date.now() + duration * 1000 }),
+
+  onTurnEnd: ({ word, correctGuessers, players, duration }) =>
+    set((s) => ({
+      phase: "reveal",
+      reveal: { word, correctGuessers, players },
+      duration,
+      deadline: Date.now() + duration * 1000,
+      messages: [...s.messages, message("system", `정답은 '${word}' 였어요!`)],
+    })),
 
   onChat: ({ nickname, text }) => set((s) => ({ messages: [...s.messages, message("chat", text, nickname)] })),
 
@@ -92,7 +112,7 @@ export const useGameStore = create<GameStore>((set) => ({
 
   flashCorrect: () => set((s) => ({ correctFlash: s.correctFlash + 1 })),
 
-  onEnded: (ranking) => set({ phase: "idle", ranking }),
+  onEnded: (ranking) => set({ phase: "idle", ranking, reveal: null }),
 
   setMyWord: (myWord) => set({ myWord }),
 

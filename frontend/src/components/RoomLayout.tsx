@@ -31,6 +31,7 @@ export function RoomLayout() {
       navigate(`/room/${code}/play`);
     };
     const onTurnStart = (p: Parameters<typeof game.onTurnStart>[0]) => useGameStore.getState().onTurnStart(p);
+    const onTurnEnd = (p: Parameters<typeof game.onTurnEnd>[0]) => useGameStore.getState().onTurnEnd(p);
     const onChat = (p: Parameters<typeof game.onChat>[0]) => useGameStore.getState().onChat(p);
     const onCorrect = (p: Parameters<typeof game.onCorrect>[0]) => {
       const g = useGameStore.getState();
@@ -47,6 +48,7 @@ export function RoomLayout() {
     socket.on("room:error", onRoomError);
     socket.on("game:turn", onTurn);
     socket.on("game:turn-start", onTurnStart);
+    socket.on("game:turn-end", onTurnEnd);
     socket.on("chat:message", onChat);
     socket.on("chat:correct", onCorrect);
     socket.on("player:left", onPlayerLeft);
@@ -60,6 +62,7 @@ export function RoomLayout() {
       socket.off("room:error", onRoomError);
       socket.off("game:turn", onTurn);
       socket.off("game:turn-start", onTurnStart);
+      socket.off("game:turn-end", onTurnEnd);
       socket.off("chat:message", onChat);
       socket.off("chat:correct", onCorrect);
       socket.off("player:left", onPlayerLeft);
