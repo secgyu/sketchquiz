@@ -126,6 +126,31 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('room:update')
+  handleUpdate(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() options: CreateRoomPayload = {},
+  ) {
+    const room = this.roomService.getRoomByPlayer(client.id);
+    if (!room) {
+      client.emit('room:error', { message: '방을 찾을 수 없어요.' });
+      return;
+    }
+    if (room.hostId !== client.id) {
+      client.emit('room:error', { message: '방장만 설정을 바꿀 수 있어요.' });
+      return;
+    }
+    if (room.game) {
+      client.emit('room:error', {
+        message: '게임 중에는 설정을 바꿀 수 없어요.',
+      });
+      return;
+    }
+    this.roomService.updateRoom(room.code, options);
+    this.server.to(room.code).emit('room:state', this.toState(room));
+    this.emitLobbyUpdate();
+  }
+
   @SubscribeMessage('game:start')
   handleStart(@ConnectedSocket() client: Socket) {
     const room = this.roomService.getRoomByPlayer(client.id);

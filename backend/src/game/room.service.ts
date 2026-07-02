@@ -63,6 +63,38 @@ export class RoomService {
     return room;
   }
 
+  /**
+   * 대기 중인 방의 설정을 부분 갱신한다(넘어온 필드만).
+   * 최대 인원은 현재 인원보다 적게 줄일 수 없다. 없는 방이면 예외.
+   */
+  updateRoom(code: string, options: CreateRoomPayload): Room {
+    const room = this.rooms.get(code);
+    if (!room) throw new Error('존재하지 않는 방이에요.');
+
+    if (options.name !== undefined) {
+      const name = options.name.trim().slice(0, MAX_NAME_LENGTH);
+      if (name) room.name = name; // 빈 이름은 기존 값 유지
+    }
+    if (options.isPublic !== undefined) room.isPublic = options.isPublic;
+    if (options.maxPlayers !== undefined) {
+      const min = Math.max(ROOM_LIMITS.maxPlayers[0], room.players.length);
+      room.maxPlayers = clampInt(options.maxPlayers, [
+        min,
+        ROOM_LIMITS.maxPlayers[1],
+      ] as const);
+    }
+    if (options.totalRounds !== undefined) {
+      room.totalRounds = clampInt(options.totalRounds, ROOM_LIMITS.totalRounds);
+    }
+    if (options.roundSeconds !== undefined) {
+      room.roundSeconds = clampInt(
+        options.roundSeconds,
+        ROOM_LIMITS.roundSeconds,
+      );
+    }
+    return room;
+  }
+
   /** 공개방 목록. 비공개방은 제외하고, 진행중/대기중 상태를 함께 담는다. */
   listPublicRooms(): PublicRoomSummary[] {
     return [...this.rooms.values()]

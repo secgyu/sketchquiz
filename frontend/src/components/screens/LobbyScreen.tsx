@@ -1,12 +1,13 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Check, Clock, Copy, DoorOpen, Hash, Play, Users } from "lucide-react";
+import { Check, Clock, Copy, DoorOpen, Hash, Pencil, Play, Users } from "lucide-react";
 
 import { PlayerList } from "@/components/game/PlayerList";
+import { RoomOptionsForm, type RoomOptionsValue } from "@/components/RoomOptionsForm";
 import { Button } from "@/components/ui/button";
 import { useSocket } from "@/hooks/useSocket";
 import { DEFAULT_ROUND_SECONDS, DEFAULT_TOTAL_ROUNDS } from "@/lib/mock";
-import { disconnectSocket } from "@/lib/socket";
+import { disconnectSocket, type CreateRoomOptions } from "@/lib/socket";
 import { useRoomStore } from "@/store/roomStore";
 
 function SettingItem({ icon, label, value, color }: { icon: ReactNode; label: string; value: string; color: string }) {
@@ -38,6 +39,35 @@ export function LobbyScreen() {
     isDrawing: false,
     hasGuessed: false,
   }));
+
+  // 방장 설정 편집: 열 때 현재 방 설정을 초안으로 복사한다.
+  const [draft, setDraft] = useState<RoomOptionsValue | null>(null);
+  const patchDraft = (patch: Partial<RoomOptionsValue>) => setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
+
+  const openEdit = () => {
+    if (!room) return;
+    setDraft({
+      name: room.name,
+      isPublic: room.isPublic,
+      rounds: room.totalRounds,
+      seconds: room.roundSeconds,
+      maxPlayers: room.maxPlayers,
+    });
+  };
+
+  const saveEdit = () => {
+    if (!draft) return;
+    const payload: CreateRoomOptions = {
+      name: draft.name.trim() || undefined,
+      isPublic: draft.isPublic,
+      maxPlayers: draft.maxPlayers,
+      totalRounds: draft.rounds,
+      roundSeconds: draft.seconds,
+    };
+    // 성공 시 서버가 room:state를 브로드캐스트하므로 낙관적으로 닫는다(실패는 room:error 토스트).
+    socket.emit("room:update", payload);
+    setDraft(null);
+  };
 
   const copyCode = async () => {
     await navigator.clipboard.writeText(code);
@@ -87,26 +117,58 @@ export function LobbyScreen() {
           {copied ? "복사 완료!" : "코드를 눌러 복사"}
         </p>
 
-        <div className="mt-6 grid grid-cols-3 gap-2.5">
-          <SettingItem
-            icon={<Hash className="size-3.5" strokeWidth={2.5} />}
-            label="라운드"
-            value={`${room?.totalRounds ?? DEFAULT_TOTAL_ROUNDS}회`}
-            color="bg-brand-pink"
-          />
-          <SettingItem
-            icon={<Clock className="size-3.5" strokeWidth={2.5} />}
-            label="시간"
-            value={`${room?.roundSeconds ?? DEFAULT_ROUND_SECONDS}초`}
-            color="bg-brand-blue"
-          />
-          <SettingItem
-            icon={<Users className="size-3.5" strokeWidth={2.5} />}
-            label="인원"
-            value={room ? `${players.length}/${room.maxPlayers}` : `${players.length}명`}
-            color="bg-brand-green"
-          />
-        </div>
+        {draft ? (
+          <div className="mt-6 space-y-5">
+            <RoomOptionsForm
+              value={draft}
+              onChange={patchDraft}
+              minPlayers={players.length}
+              namePlaceholder={room?.name}
+            />
+            <div className="flex gap-2">
+              <Button size="lg" variant="default" onClick={() => setDraft(null)} className="flex-1">
+                취소
+              </Button>
+              <Button size="lg" variant="green" onClick={saveEdit} className="flex-1">
+                <Check strokeWidth={2.5} />
+                저장
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mt-6 grid grid-cols-3 gap-2.5">
+              <SettingItem
+                icon={<Hash className="size-3.5" strokeWidth={2.5} />}
+                label="라운드"
+                value={`${room?.totalRounds ?? DEFAULT_TOTAL_ROUNDS}회`}
+                color="bg-brand-pink"
+              />
+              <SettingItem
+                icon={<Clock className="size-3.5" strokeWidth={2.5} />}
+                label="시간"
+                value={`${room?.roundSeconds ?? DEFAULT_ROUND_SECONDS}초`}
+                color="bg-brand-blue"
+              />
+              <SettingItem
+                icon={<Users className="size-3.5" strokeWidth={2.5} />}
+                label="인원"
+                value={room ? `${players.length}/${room.maxPlayers}` : `${players.length}명`}
+                color="bg-brand-green"
+              />
+            </div>
+            {isHost && (
+              <button
+                type="button"
+                onClick={openEdit}
+                className="press mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-ink bg-white py-2 text-sm font-black text-ink"
+              >
+                <Pencil className="size-4" strokeWidth={2.5} />
+                설정 편집
+              </button>
+            )}
+          </>
+        )}
 
         <div className="mt-6">
           <h2 className="mb-2 inline-block self-start -rotate-1 border-2 border-ink bg-brand-purple px-2 py-0.5 text-xs font-black uppercase text-ink">
@@ -124,16 +186,17 @@ export function LobbyScreen() {
           </p>
         )}
 
-        {isHost ? (
-          <Button size="lg" variant="green" onClick={() => socket.emit("game:start")} className="mt-6 w-full text-lg">
-            <Play className="fill-ink" strokeWidth={2.5} />
-            게임 시작
-          </Button>
-        ) : (
-          <p className="mt-6 rounded-xl border-2 border-ink bg-brand-blue px-3 py-3 text-center text-sm font-black text-ink">
-            방장이 게임을 시작하길 기다리는 중…
-          </p>
-        )}
+        {!draft &&
+          (isHost ? (
+            <Button size="lg" variant="green" onClick={() => socket.emit("game:start")} className="mt-6 w-full text-lg">
+              <Play className="fill-ink" strokeWidth={2.5} />
+              게임 시작
+            </Button>
+          ) : (
+            <p className="mt-6 rounded-xl border-2 border-ink bg-brand-blue px-3 py-3 text-center text-sm font-black text-ink">
+              방장이 게임을 시작하길 기다리는 중…
+            </p>
+          ))}
 
         <button
           type="button"

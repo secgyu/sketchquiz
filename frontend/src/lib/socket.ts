@@ -74,6 +74,7 @@ export interface ServerToClientEvents {
 /** 클라이언트 → 서버 이벤트 (game.gateway.ts의 @SubscribeMessage와 1:1 대응) */
 export interface ClientToServerEvents {
   "room:create": (options: CreateRoomOptions, ack: (room: RoomState) => void) => void;
+  "room:update": (options: CreateRoomOptions) => void;
   "room:join": (payload: { code: string }) => void;
   "game:start": () => void;
   "game:set-word": (payload: { word: string }) => void;

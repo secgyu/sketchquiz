@@ -67,6 +67,40 @@ describe('RoomService', () => {
     });
   });
 
+  describe('updateRoom 부분 갱신', () => {
+    it('넘어온 필드만 바꾸고 나머지는 유지한다', () => {
+      const room = service.createRoom('h1', 'Alice', {
+        isPublic: true,
+        totalRounds: 3,
+        roundSeconds: 80,
+      });
+      service.updateRoom(room.code, { totalRounds: 7, isPublic: false });
+      expect(room.totalRounds).toBe(7);
+      expect(room.isPublic).toBe(false);
+      expect(room.roundSeconds).toBe(80); // 안 넘긴 필드는 그대로
+    });
+
+    it('최대 인원을 현재 인원보다 적게 줄일 수 없다', () => {
+      const room = service.createRoom('h1', 'Alice', { maxPlayers: 8 });
+      service.joinRoom(room.code, 'p2', 'Bob');
+      service.joinRoom(room.code, 'p3', 'Carol');
+      service.updateRoom(room.code, { maxPlayers: 2 }); // 현재 3명
+      expect(room.maxPlayers).toBe(3); // 현재 인원까지만 축소
+    });
+
+    it('빈 이름은 무시하고 기존 이름을 유지한다', () => {
+      const room = service.createRoom('h1', 'Alice', { name: '내 방' });
+      service.updateRoom(room.code, { name: '   ' });
+      expect(room.name).toBe('내 방');
+    });
+
+    it('없는 방이면 예외', () => {
+      expect(() => service.updateRoom('ZZZZ', { totalRounds: 5 })).toThrow(
+        '존재하지 않는 방이에요.',
+      );
+    });
+  });
+
   describe('listPublicRooms', () => {
     it('비공개방은 제외하고 공개방만 요약한다', () => {
       const pub = service.createRoom('h1', 'Alice', { isPublic: true });
