@@ -21,15 +21,22 @@ import type {
   CreateRoomPayload,
   DrawStroke,
   JoinRoomPayload,
+  Player,
   PublicRoomSummary,
   Room,
   RoomState,
   SetWordPayload,
   SocketData,
 } from './game.types';
+import type { ClientToServerEvents, ServerToClientEvents } from './protocol';
 import { RoomService } from './room.service';
 
 const LOBBY_ROOM = 'lobby'; // 공개방 목록을 구독하는 소켓들이 모이는 가상 방
+const RECONNECT_GRACE_MS = 60_000; // 게임 중 연결이 끊겨도 이 시간 안에 돌아오면 자리를 지켜준다
+
+// 실시간 통신 계약(protocol.ts)을 소켓 제네릭에 입혀 emit 페이로드를 컴파일 타임에 검증한다.
+type IoServer = Server<ClientToServerEvents, ServerToClientEvents>;
+type IoSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 /**
  * 게임 실시간 통신 게이트웨이.
@@ -41,10 +48,12 @@ const LOBBY_ROOM = 'lobby'; // 공개방 목록을 구독하는 소켓들이 모
 })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server: Server;
+  server: IoServer;
 
   private readonly logger = new Logger(GameGateway.name);
   private readonly turnTimers = new Map<string, NodeJS.Timeout>();
+  // 재접속 유예 타이머 (userId → 제거 예약). 돌아오면 취소한다.
+  private readonly removalTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(
     private readonly roomService: RoomService,
@@ -52,7 +61,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly jwt: JwtService,
   ) {}
 
-  handleConnection(client: Socket) {
+  handleConnection(client: IoSocket) {
     try {
       const payload = this.jwt.verify<JwtPayload>(this.extractToken(client));
       const data = client.data as SocketData;
@@ -67,39 +76,90 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  handleDisconnect(client: Socket) {
+  handleDisconnect(client: IoSocket) {
     this.logger.log(`연결 끊김: ${client.id}`);
-    const nickname = (client.data as SocketData).username;
-    const wasDrawer =
-      this.roomService.getRoomByPlayer(client.id)?.game?.drawerId === client.id;
-    const room = this.roomService.leaveRoom(client.id);
-    this.emitLobbyUpdate(); // 방 삭제·인원 변동 모두 반영 (room이 null이어도 안전)
-    if (!room) return;
+    const socketId = client.id;
+    const nickname = this.username(client);
+    const userId = this.userId(client);
+    const room = this.roomService.getRoomByPlayer(socketId);
+    if (!room) {
+      this.emitLobbyUpdate();
+      return;
+    }
 
-    if (nickname) this.server.to(room.code).emit('player:left', { nickname });
-    this.server.to(room.code).emit('room:state', this.toState(room));
-    // 진행 중인데 출제자가 나갔으면 턴을 마무리하고 다음으로 넘긴다.
-    if (wasDrawer && room.game) this.endTurn(room.code);
+    if (room.game) {
+      // 게임 중: 즉시 내보내지 않고 '접속 끊김'으로만 표시하고 재접속을 기다린다.
+      const wasDrawer = room.game.drawerId === socketId;
+      this.roomService.markDisconnected(socketId);
+      this.server.to(room.code).emit('room:state', this.toState(room));
+      if (wasDrawer) this.endTurn(room.code); // 출제자가 나가면 턴을 마무리
+      this.scheduleRemoval(room.code, socketId, userId, nickname);
+    } else {
+      // 대기실: 기존처럼 즉시 퇴장 처리
+      const left = this.roomService.leaveRoom(socketId);
+      if (left) {
+        if (nickname)
+          this.server.to(left.code).emit('player:left', { nickname });
+        this.server.to(left.code).emit('room:state', this.toState(left));
+      }
+    }
+    this.emitLobbyUpdate();
+  }
+
+  /** 재접속 유예가 끝나면 실제로 방에서 제거한다(돌아왔거나 사라졌으면 무시). */
+  private scheduleRemoval(
+    code: string,
+    socketId: string,
+    userId: string,
+    nickname: string,
+  ) {
+    this.cancelRemoval(userId);
+    this.removalTimers.set(
+      userId,
+      setTimeout(() => {
+        this.removalTimers.delete(userId);
+        const room = this.roomService.getRoom(code);
+        const player = room?.players.find((p) => p.id === socketId);
+        if (!player || player.connected) return; // 이미 재접속했다
+        const wasDrawer = room?.game?.drawerId === socketId;
+        const left = this.roomService.leaveRoom(socketId);
+        this.emitLobbyUpdate();
+        if (!left) return;
+        if (nickname)
+          this.server.to(left.code).emit('player:left', { nickname });
+        this.server.to(left.code).emit('room:state', this.toState(left));
+        if (wasDrawer && left.game) this.endTurn(left.code);
+      }, RECONNECT_GRACE_MS),
+    );
+  }
+
+  private cancelRemoval(userId: string) {
+    const timer = this.removalTimers.get(userId);
+    if (timer) {
+      clearTimeout(timer);
+      this.removalTimers.delete(userId);
+    }
   }
 
   @SubscribeMessage('lobby:join')
-  handleLobbyJoin(@ConnectedSocket() client: Socket): PublicRoomSummary[] {
+  handleLobbyJoin(@ConnectedSocket() client: IoSocket): PublicRoomSummary[] {
     void client.join(LOBBY_ROOM);
     return this.roomService.listPublicRooms(); // 최초 목록은 ack로 전달
   }
 
   @SubscribeMessage('lobby:leave')
-  handleLobbyLeave(@ConnectedSocket() client: Socket) {
+  handleLobbyLeave(@ConnectedSocket() client: IoSocket) {
     void client.leave(LOBBY_ROOM);
   }
 
   @SubscribeMessage('room:create')
   handleCreate(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: IoSocket,
     @MessageBody() options: CreateRoomPayload = {},
   ): RoomState {
     const room = this.roomService.createRoom(
       client.id,
+      this.userId(client),
       this.username(client),
       options,
     );
@@ -111,13 +171,29 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('room:join')
   handleJoin(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: IoSocket,
     @MessageBody() { code }: JoinRoomPayload,
   ) {
+    const upper = code.toUpperCase();
+    const userId = this.userId(client);
+    const existing = this.roomService.getRoom(upper);
+
+    // 재접속: 같은 방에 내 userId가 이미 있으면 새 소켓으로 갈아끼우고 상태를 복원한다.
+    if (existing?.players.some((p) => p.userId === userId)) {
+      this.roomService.rebindPlayer(existing, userId, client.id);
+      this.cancelRemoval(userId);
+      void client.join(existing.code);
+      this.server.to(existing.code).emit('room:state', this.toState(existing));
+      this.emitLobbyUpdate();
+      if (existing.game) this.sendSync(client, existing);
+      return;
+    }
+
     try {
       const room = this.roomService.joinRoom(
-        code.toUpperCase(),
+        upper,
         client.id,
+        userId,
         this.username(client),
       );
       void client.join(room.code);
@@ -130,9 +206,34 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  /** 재접속한 클라이언트에게 현재 진행 상태 스냅샷을 보내 화면을 복원시킨다. */
+  private sendSync(client: IoSocket, room: Room) {
+    const game = room.game;
+    if (!game) return;
+    const isDrawer = game.drawerId === client.id;
+    const remainingSec = Math.max(
+      0,
+      Math.ceil((game.deadline - Date.now()) / 1000),
+    );
+    client.emit('game:sync', {
+      round: game.round,
+      totalRounds: game.totalRounds,
+      drawerId: game.drawerId,
+      phase: game.phase,
+      wordLength: game.word.length,
+      remainingSec,
+      correctIds: game.correctGuessers,
+      // 제시어/후보는 본인이 출제자일 때만 노출한다.
+      ...(isDrawer && game.word ? { word: game.word } : {}),
+      ...(isDrawer && game.phase === 'selecting'
+        ? { choices: game.choices }
+        : {}),
+    });
+  }
+
   @SubscribeMessage('room:update')
   handleUpdate(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: IoSocket,
     @MessageBody() options: CreateRoomPayload = {},
   ) {
     const room = this.roomService.getRoomByPlayer(client.id);
@@ -156,7 +257,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('game:start')
-  handleStart(@ConnectedSocket() client: Socket) {
+  handleStart(@ConnectedSocket() client: IoSocket) {
     const room = this.roomService.getRoomByPlayer(client.id);
     if (!room) {
       client.emit('room:error', { message: '방을 찾을 수 없어요.' });
@@ -177,7 +278,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('game:set-word')
   handleSetWord(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: IoSocket,
     @MessageBody() { word }: SetWordPayload,
   ) {
     const room = this.roomService.getRoomByPlayer(client.id);
@@ -196,6 +297,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     room.game.word = trimmed;
+    room.game.phase = 'drawing';
+    room.game.deadline = Date.now() + room.roundSeconds * 1000;
     this.server.to(room.code).emit('game:turn-start', {
       wordLength: trimmed.length,
       duration: room.roundSeconds,
@@ -205,7 +308,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('draw:stroke')
   handleDrawStroke(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: IoSocket,
     @MessageBody() stroke: DrawStroke,
   ) {
     const room = this.roomService.getRoomByPlayer(client.id);
@@ -214,7 +317,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('draw:clear')
-  handleDrawClear(@ConnectedSocket() client: Socket) {
+  handleDrawClear(@ConnectedSocket() client: IoSocket) {
     const room = this.roomService.getRoomByPlayer(client.id);
     if (!room?.game || room.game.drawerId !== client.id) return;
     client.to(room.code).emit('draw:clear');
@@ -222,7 +325,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('chat:message')
   handleChat(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: IoSocket,
     @MessageBody() { text }: ChatMessagePayload,
   ) {
     const room = this.roomService.getRoomByPlayer(client.id);
@@ -254,6 +357,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const game = room.game;
     if (!game) return;
 
+    game.phase = 'selecting';
+    game.deadline = Date.now() + WORD_SELECT_SECONDS * 1000;
     this.server.to(room.code).emit('game:turn', {
       round: game.round,
       totalRounds: game.totalRounds,
@@ -319,7 +424,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.clearTurnTimer(code);
       room.game = undefined;
       this.emitLobbyUpdate(); // 게임중 → 대기중 상태 반영
-      const ranking = [...room.players].sort((a, b) => b.score - a.score);
+      const ranking = this.publicPlayers(room).sort(
+        (a, b) => b.score - a.score,
+      );
       this.server.to(code).emit('game:ended', { ranking });
       return;
     }
@@ -359,16 +466,30 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       totalRounds: room.totalRounds,
       roundSeconds: room.roundSeconds,
       status: room.game ? 'playing' : 'waiting',
-      players: room.players,
+      players: this.publicPlayers(room),
     };
   }
 
-  private username(client: Socket): string {
+  /** 클라이언트로 내보낼 때 서버 비밀(userId)을 제거한 플레이어 목록. */
+  private publicPlayers(room: Room): Player[] {
+    return room.players.map(({ id, nickname, score, connected }) => ({
+      id,
+      nickname,
+      score,
+      connected,
+    }));
+  }
+
+  private username(client: IoSocket): string {
     return (client.data as SocketData).username;
   }
 
+  private userId(client: IoSocket): string {
+    return (client.data as SocketData).userId;
+  }
+
   /** 소켓 핸드셰이크에서 JWT를 꺼낸다 (auth.token 우선, Authorization 헤더 대체). */
-  private extractToken(client: Socket): string {
+  private extractToken(client: IoSocket): string {
     const auth = client.handshake.auth as { token?: unknown };
     if (typeof auth.token === 'string' && auth.token) return auth.token;
 

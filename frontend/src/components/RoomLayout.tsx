@@ -31,6 +31,10 @@ export function RoomLayout() {
       navigate(`/room/${code}/play`);
     };
     const onWordChoices = ({ choices }: { choices: string[] }) => useGameStore.getState().onWordChoices(choices);
+    const onSync = (p: Parameters<typeof game.onSync>[0]) => {
+      useGameStore.getState().onSync(p);
+      navigate(`/room/${code}/play`);
+    };
     const onTurnStart = (p: Parameters<typeof game.onTurnStart>[0]) => useGameStore.getState().onTurnStart(p);
     const onTurnEnd = (p: Parameters<typeof game.onTurnEnd>[0]) => useGameStore.getState().onTurnEnd(p);
     const onChat = (p: Parameters<typeof game.onChat>[0]) => useGameStore.getState().onChat(p);
@@ -48,6 +52,7 @@ export function RoomLayout() {
     socket.on("room:state", onRoomState);
     socket.on("room:error", onRoomError);
     socket.on("game:turn", onTurn);
+    socket.on("game:sync", onSync);
     socket.on("game:word-choices", onWordChoices);
     socket.on("game:turn-start", onTurnStart);
     socket.on("game:turn-end", onTurnEnd);
@@ -56,13 +61,18 @@ export function RoomLayout() {
     socket.on("player:left", onPlayerLeft);
     socket.on("game:ended", onEnded);
 
-    // 새로고침·직접 진입 등으로 아직 이 방에 없으면 입장한다(중복 입장은 서버가 무시).
-    if (useRoomStore.getState().room?.code !== code) socket.emit("room:join", { code });
+    // (재)연결될 때마다 이 방에 입장을 요청한다. 서버가 재접속이면 상태를 복원(room:state+game:sync),
+    // 신규면 새로 입장시킨다. 새로고침·일시적 연결 끊김 모두 이 한 경로로 처리된다.
+    const rejoin = () => socket.emit("room:join", { code });
+    socket.on("connect", rejoin);
+    if (socket.connected) rejoin(); // 이미 연결된 채 화면만 이동한 경우
 
     return () => {
+      socket.off("connect", rejoin);
       socket.off("room:state", onRoomState);
       socket.off("room:error", onRoomError);
       socket.off("game:turn", onTurn);
+      socket.off("game:sync", onSync);
       socket.off("game:word-choices", onWordChoices);
       socket.off("game:turn-start", onTurnStart);
       socket.off("game:turn-end", onTurnEnd);

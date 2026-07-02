@@ -5,6 +5,7 @@ export interface Player {
   isHost: boolean;
   isDrawing: boolean;
   hasGuessed: boolean;
+  connected?: boolean; // 재접속 대기 중이면 false → 목록에서 흐리게 표시
 }
 
 export type ChatKind = "chat" | "correct" | "system";

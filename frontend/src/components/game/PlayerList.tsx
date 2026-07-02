@@ -23,6 +23,7 @@ export function PlayerList({ players, ranked = false, showStatus = true }: Playe
             "bg-white",
             showStatus && player.isDrawing && "bg-brand-yellow",
             showStatus && player.hasGuessed && !player.isDrawing && "bg-brand-green",
+            player.connected === false && "opacity-40", // 접속 끊김(재접속 대기)
           )}
         >
           {ranked && <span className="w-5 text-center text-base font-black text-ink tabular-nums">{index + 1}</span>}

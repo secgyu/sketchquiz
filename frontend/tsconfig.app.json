@@ -23,8 +23,9 @@
     "noFallthroughCasesInSwitch": true,
 
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@shared/protocol": ["../backend/src/game/protocol.ts"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "../backend/src/game/protocol.ts", "../backend/src/game/game.types.ts"]
 }

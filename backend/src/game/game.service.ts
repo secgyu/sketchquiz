@@ -29,6 +29,8 @@ export class GameService {
       word: '',
       choices: pickChoices(WORD_CHOICE_COUNT),
       correctGuessers: [],
+      phase: 'selecting',
+      deadline: 0, // 게이트웨이가 announceTurn에서 실제 마감 시각으로 채운다
     };
     room.game = game;
     return game;
@@ -52,6 +54,8 @@ export class GameService {
     game.word = '';
     game.choices = pickChoices(WORD_CHOICE_COUNT);
     game.correctGuessers = [];
+    game.phase = 'selecting';
+    game.deadline = 0;
     return game;
   }
 

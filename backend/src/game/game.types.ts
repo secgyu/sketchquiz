@@ -1,10 +1,20 @@
+/** 클라이언트로 내려보내는 플레이어 스냅샷 (userId 같은 서버 비밀은 담지 않는다) */
 export interface Player {
-  id: string; // socket id
+  id: string; // 현재 socket id (재접속 시 갱신됨)
   nickname: string;
   score: number;
+  connected: boolean; // 재접속 대기 중이면 false (UI에서 흐리게 표시)
+}
+
+/** 서버 내부 플레이어. 재접속 매칭용 안정 신원(userId)을 함께 들고 있다. */
+export interface ServerPlayer extends Player {
+  userId: string; // JWT sub — socket이 바뀌어도 유지되는 신원
 }
 
 export type GameStatus = 'playing' | 'ended';
+
+/** 턴 진행 단계. 재접속 스냅샷에서 화면을 복원하는 데 쓴다. */
+export type TurnPhase = 'selecting' | 'drawing';
 
 export interface GameState {
   status: GameStatus;
@@ -16,6 +26,8 @@ export interface GameState {
   word: string; // 현재 제시어 (서버 비밀). 출제자가 choices 중 하나를 고르기 전엔 빈 문자열
   choices: string[]; // 이번 턴 출제자에게 제시하는 3지선다 후보 (출제자에게만 전송)
   correctGuessers: string[]; // 이번 턴에 정답을 맞힌 플레이어 id (순서 = 점수 차등)
+  phase: TurnPhase; // 재접속 복원용 현재 단계
+  deadline: number; // 현재 단계 종료 시각(epoch ms) — 재접속 시 남은시간 계산
 }
 
 export type GuessResult =
@@ -34,7 +46,7 @@ export interface Room {
   totalRounds: number;
   roundSeconds: number;
   createdAt: number; // 생성 시각(epoch ms) — 목록 최신순 정렬용
-  players: Player[];
+  players: ServerPlayer[];
   game?: GameState;
 }
 

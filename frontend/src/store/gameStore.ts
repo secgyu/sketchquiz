@@ -32,6 +32,17 @@ interface GameStore {
   reveal: TurnReveal | null; // 턴 종료 공개 오버레이 (없으면 null)
 
   onTurn: (p: { round: number; totalRounds: number; drawerId: string; selectDuration: number }) => void;
+  onSync: (p: {
+    round: number;
+    totalRounds: number;
+    drawerId: string;
+    phase: "selecting" | "drawing";
+    wordLength: number;
+    remainingSec: number;
+    correctIds: string[];
+    word?: string;
+    choices?: string[];
+  }) => void;
   onWordChoices: (choices: string[]) => void;
   onTurnStart: (p: { wordLength: number; duration: number }) => void;
   onTurnEnd: (p: TurnReveal & { duration: number }) => void;
@@ -90,6 +101,24 @@ export const useGameStore = create<GameStore>((set) => ({
       messages: s.phase === "idle" ? [turnMsg] : [...s.messages, turnMsg],
     }));
   },
+
+  // 재접속 스냅샷으로 진행 중인 게임 화면을 통째로 복원한다(그림 획·채팅 기록은 복원 대상 아님).
+  onSync: ({ round, totalRounds, drawerId, phase, wordLength, remainingSec, correctIds, word, choices }) =>
+    set((s) => ({
+      turnKey: s.turnKey + 1,
+      phase,
+      round,
+      totalRounds,
+      drawerId,
+      wordLength,
+      duration: remainingSec,
+      deadline: Date.now() + remainingSec * 1000,
+      myWord: word ?? "",
+      choices: choices ?? [],
+      correctIds,
+      reveal: null,
+      messages: [message("system", "게임에 다시 연결했어요.")],
+    })),
 
   onWordChoices: (choices) => set({ choices }),
 

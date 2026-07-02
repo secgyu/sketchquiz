@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { CreateRoomPayload, PublicRoomSummary, Room } from './game.types';
+import type {
+  CreateRoomPayload,
+  PublicRoomSummary,
+  Room,
+  ServerPlayer,
+} from './game.types';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 0/O/1/I 제외
 
@@ -32,6 +37,7 @@ export class RoomService {
 
   createRoom(
     hostId: string,
+    userId: string,
     nickname: string,
     options: CreateRoomPayload = {},
   ): Room {
@@ -57,7 +63,7 @@ export class RoomService {
         ROOM_LIMITS.roundSeconds,
       ),
       createdAt: Date.now(),
-      players: [{ id: hostId, nickname, score: 0 }],
+      players: [{ id: hostId, userId, nickname, score: 0, connected: true }],
     };
     this.rooms.set(code, room);
     return room;
@@ -115,16 +121,64 @@ export class RoomService {
    * 존재하지 않는 방이면 예외를 던진다. 이미 들어와 있으면 중복 추가하지 않는다.
    * 정원이 가득 찬 방에는 새로 입장할 수 없다.
    */
-  joinRoom(code: string, playerId: string, nickname: string): Room {
+  joinRoom(
+    code: string,
+    playerId: string,
+    userId: string,
+    nickname: string,
+  ): Room {
     const room = this.rooms.get(code);
     if (!room) throw new Error('존재하지 않는 방이에요.');
     if (!room.players.some((p) => p.id === playerId)) {
       if (room.players.length >= room.maxPlayers) {
         throw new Error('방이 가득 찼어요.');
       }
-      room.players.push({ id: playerId, nickname, score: 0 });
+      room.players.push({
+        id: playerId,
+        userId,
+        nickname,
+        score: 0,
+        connected: true,
+      });
     }
     return room;
+  }
+
+  /**
+   * 재접속: 같은 방에 userId가 이미 있으면 socket id 참조를 새 것으로 갈아끼운다.
+   * 기존 점수·턴 순서·방장 권한을 그대로 유지한 채 새 소켓에 다시 연결한다.
+   * 해당 userId 플레이어가 없으면 null(=신규 입장으로 처리하라는 뜻).
+   */
+  rebindPlayer(
+    room: Room,
+    userId: string,
+    newSocketId: string,
+  ): ServerPlayer | null {
+    const player = room.players.find((p) => p.userId === userId);
+    if (!player) return null;
+
+    const oldId = player.id;
+    player.id = newSocketId;
+    player.connected = true;
+    if (room.hostId === oldId) room.hostId = newSocketId;
+
+    const game = room.game;
+    if (game) {
+      if (game.drawerId === oldId) game.drawerId = newSocketId;
+      game.order = game.order.map((id) => (id === oldId ? newSocketId : id));
+      game.correctGuessers = game.correctGuessers.map((id) =>
+        id === oldId ? newSocketId : id,
+      );
+    }
+    return player;
+  }
+
+  /** 연결이 끊긴 플레이어를 곧바로 지우지 않고 '접속 끊김'으로만 표시한다(재접속 유예). */
+  markDisconnected(socketId: string): Room | null {
+    const room = this.getRoomByPlayer(socketId);
+    const player = room?.players.find((p) => p.id === socketId);
+    if (player) player.connected = false;
+    return room ?? null;
   }
 
   /**
