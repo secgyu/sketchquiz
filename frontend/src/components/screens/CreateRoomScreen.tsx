@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ComponentType } from "react";
+import { useRef, useState, type ComponentType } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, Clock, Globe, Hash, Lock, Sparkles, Users } from "lucide-react";
 
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDelayedVisible } from "@/hooks/useDelayedVisible";
 import { useSocket } from "@/hooks/useSocket";
+import type { CreateRoomOptions } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { useRoomStore } from "@/store/roomStore";
@@ -72,53 +73,42 @@ export function CreateRoomScreen() {
   const [seconds, setSeconds] = useState(TIME_OPTIONS[1]);
   const [maxPlayers, setMaxPlayers] = useState(PLAYER_OPTIONS[2]);
   const [error, setError] = useState("");
-  // 서버가 코드를 발급한 뒤에야 대기실로 이동할 수 있으므로 응답을 기다린다.
+  // 생성 요청 진행 여부. ack(응답 콜백)가 오거나 타임아웃되면 해제된다.
   const [creating, setCreating] = useState(false);
   const creatingRef = useRef(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   // 로딩 오버레이는 "지연 표시 + 최소 유지"로 깜빡임을 막는다(빠르면 아예 안 뜸).
   const showOverlay = useDelayedVisible(creating);
 
   const stopCreating = () => {
     creatingRef.current = false;
     setCreating(false);
-    clearTimeout(timerRef.current);
   };
-
-  useEffect(() => {
-    const onRoomState = (state: Parameters<typeof setRoom>[0]) => {
-      setRoom(state);
-      if (creatingRef.current) {
-        stopCreating();
-        navigate(`/room/${state.code}`);
-      }
-    };
-    const onRoomError = ({ message }: { message: string }) => {
-      stopCreating();
-      setError(message);
-    };
-    socket.on("room:state", onRoomState);
-    socket.on("room:error", onRoomError);
-    return () => {
-      socket.off("room:state", onRoomState);
-      socket.off("room:error", onRoomError);
-      clearTimeout(timerRef.current);
-    };
-  }, [socket, setRoom, navigate]);
 
   const handleCreate = () => {
     if (creating) return;
     setError("");
     creatingRef.current = true;
     setCreating(true);
-    // 서버 응답이 없을 때 버튼이 영원히 잠기지 않도록 안전 타임아웃을 건다.
-    timerRef.current = setTimeout(() => {
+
+    const options: CreateRoomOptions = {
+      name: name.trim() || undefined,
+      isPublic,
+      maxPlayers,
+      totalRounds: rounds,
+      roundSeconds: seconds,
+    };
+
+    // ack(요청-응답) + 타임아웃 표준 패턴. 응답이 없으면 err가 채워진다.
+    socket.timeout(CREATE_TIMEOUT_MS).emit("room:create", options, (err, room) => {
+      if (!creatingRef.current) return; // 이미 취소/언마운트됨
       stopCreating();
-      setError("방 만들기에 실패했어요. 연결 상태를 확인하고 다시 시도해 주세요.");
-    }, CREATE_TIMEOUT_MS);
-    // 아직 연결 전이어도 Socket.IO가 emit을 버퍼링했다가 연결되면 자동 전송한다.
-    // ponytail: 옵션(name/isPublic/rounds/seconds/maxPlayers)은 백엔드 room:create 확장 시 payload로 전달한다.
-    socket.emit("room:create");
+      if (err || !room) {
+        setError("방 만들기에 실패했어요. 연결 상태를 확인하고 다시 시도해 주세요.");
+        return;
+      }
+      setRoom(room);
+      navigate(`/room/${room.code}`);
+    });
   };
 
   return (

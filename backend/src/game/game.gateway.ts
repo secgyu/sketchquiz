@@ -11,13 +11,10 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import type { JwtPayload } from '../auth/jwt.strategy';
-import {
-  GameService,
-  ROUND_SECONDS,
-  WORD_SELECT_SECONDS,
-} from './game.service';
+import { GameService, WORD_SELECT_SECONDS } from './game.service';
 import type {
   ChatMessagePayload,
+  CreateRoomPayload,
   DrawStroke,
   JoinRoomPayload,
   Room,
@@ -78,10 +75,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('room:create')
-  handleCreate(@ConnectedSocket() client: Socket) {
-    const room = this.roomService.createRoom(client.id, this.username(client));
+  handleCreate(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() options: CreateRoomPayload = {},
+  ): RoomState {
+    const room = this.roomService.createRoom(
+      client.id,
+      this.username(client),
+      options,
+    );
     void client.join(room.code);
-    client.emit('room:state', this.toState(room));
+    // 반환값은 클라이언트가 넘긴 ack 콜백으로 전달된다(요청-응답 1:1).
+    return this.toState(room);
   }
 
   @SubscribeMessage('room:join')
@@ -145,9 +150,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     room.game.word = trimmed;
     this.server.to(room.code).emit('game:turn-start', {
       wordLength: trimmed.length,
-      duration: ROUND_SECONDS,
+      duration: room.roundSeconds,
     });
-    this.setTurnTimer(room.code, ROUND_SECONDS);
+    this.setTurnTimer(room.code, room.roundSeconds);
   }
 
   @SubscribeMessage('draw:stroke')
@@ -247,7 +252,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private toState(room: Room): RoomState {
-    return { code: room.code, hostId: room.hostId, players: room.players };
+    return {
+      code: room.code,
+      hostId: room.hostId,
+      name: room.name,
+      isPublic: room.isPublic,
+      maxPlayers: room.maxPlayers,
+      totalRounds: room.totalRounds,
+      roundSeconds: room.roundSeconds,
+      status: room.game ? 'playing' : 'waiting',
+      players: room.players,
+    };
   }
 
   private username(client: Socket): string {

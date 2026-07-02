@@ -13,13 +13,13 @@ const DRAWER_POINTS = 30; // 정답자 1명당 출제자에게 주는 점수
  */
 @Injectable()
 export class GameService {
-  start(room: Room, totalRounds: number = DEFAULT_TOTAL_ROUNDS): GameState {
+  start(room: Room): GameState {
     room.players.forEach((p) => (p.score = 0)); // 새 게임 시작 시 점수 초기화
     const order = room.players.map((p) => p.id);
     const game: GameState = {
       status: 'playing',
       round: 1,
-      totalRounds,
+      totalRounds: room.totalRounds,
       order,
       turnIndex: 0,
       drawerId: order[0],

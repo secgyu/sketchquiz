@@ -56,8 +56,19 @@ export function LobbyScreen() {
     <div className="brutal-bg flex min-h-svh items-center justify-center p-4">
       <main className="w-full max-w-lg rounded-2xl border-[3px] border-ink bg-white p-7 shadow-hard-lg">
         <div className="text-center">
-          <h1 className="inline-block -rotate-1 text-3xl font-black tracking-tight text-ink">대기실</h1>
-          <p className="mt-1 text-sm font-bold text-muted-foreground">친구에게 코드를 공유하고 다 같이 시작!</p>
+          <h1 className="inline-block -rotate-1 text-3xl font-black tracking-tight text-ink">
+            {room?.name ?? "대기실"}
+          </h1>
+          <p className="mt-1 flex items-center justify-center gap-1.5 text-sm font-bold text-muted-foreground">
+            <span
+              className={`inline-block rounded border-2 border-ink px-1.5 py-0.5 text-[11px] font-black text-ink ${
+                room?.isPublic ? "bg-brand-green" : "bg-brand-blue"
+              }`}
+            >
+              {room?.isPublic ? "공개방" : "비공개방"}
+            </span>
+            친구에게 코드를 공유하고 다 같이 시작!
+          </p>
         </div>
 
         <button
@@ -80,19 +91,19 @@ export function LobbyScreen() {
           <SettingItem
             icon={<Hash className="size-3.5" strokeWidth={2.5} />}
             label="라운드"
-            value={`${DEFAULT_TOTAL_ROUNDS}회`}
+            value={`${room?.totalRounds ?? DEFAULT_TOTAL_ROUNDS}회`}
             color="bg-brand-pink"
           />
           <SettingItem
             icon={<Clock className="size-3.5" strokeWidth={2.5} />}
             label="시간"
-            value={`${DEFAULT_ROUND_SECONDS}초`}
+            value={`${room?.roundSeconds ?? DEFAULT_ROUND_SECONDS}초`}
             color="bg-brand-blue"
           />
           <SettingItem
             icon={<Users className="size-3.5" strokeWidth={2.5} />}
             label="인원"
-            value={`${players.length}명`}
+            value={room ? `${players.length}/${room.maxPlayers}` : `${players.length}명`}
             color="bg-brand-green"
           />
         </div>

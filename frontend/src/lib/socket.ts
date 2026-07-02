@@ -10,10 +10,27 @@ export interface Player {
   score: number;
 }
 
+export type RoomStatus = "waiting" | "playing";
+
 export interface RoomState {
   code: string;
   hostId: string;
+  name: string;
+  isPublic: boolean;
+  maxPlayers: number;
+  totalRounds: number;
+  roundSeconds: number;
+  status: RoomStatus;
   players: Player[];
+}
+
+/** 방 생성 옵션 (game.types.CreateRoomPayload와 대응) */
+export interface CreateRoomOptions {
+  name?: string;
+  isPublic: boolean;
+  maxPlayers: number;
+  totalRounds: number;
+  roundSeconds: number;
 }
 
 export interface DrawStroke {
@@ -43,7 +60,7 @@ export interface ServerToClientEvents {
 
 /** 클라이언트 → 서버 이벤트 (game.gateway.ts의 @SubscribeMessage와 1:1 대응) */
 export interface ClientToServerEvents {
-  "room:create": () => void;
+  "room:create": (options: CreateRoomOptions, ack: (room: RoomState) => void) => void;
   "room:join": (payload: { code: string }) => void;
   "game:start": () => void;
   "game:set-word": (payload: { word: string }) => void;

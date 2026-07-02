@@ -22,9 +22,16 @@ export type GuessResult =
   | { status: 'already' } // 이미 맞힌 사람의 정답 재입력 (무시)
   | { status: 'correct'; allGuessed: boolean };
 
+export type RoomStatus = 'waiting' | 'playing';
+
 export interface Room {
   code: string;
   hostId: string; // 방장 socket id
+  name: string;
+  isPublic: boolean;
+  maxPlayers: number;
+  totalRounds: number;
+  roundSeconds: number;
   players: Player[];
   game?: GameState;
 }
@@ -33,7 +40,22 @@ export interface Room {
 export interface RoomState {
   code: string;
   hostId: string;
+  name: string;
+  isPublic: boolean;
+  maxPlayers: number;
+  totalRounds: number;
+  roundSeconds: number;
+  status: RoomStatus;
   players: Player[];
+}
+
+/** 방 생성 옵션 (모두 선택. 서버가 기본값/범위로 보정한다) */
+export interface CreateRoomPayload {
+  name?: string;
+  isPublic?: boolean;
+  maxPlayers?: number;
+  totalRounds?: number;
+  roundSeconds?: number;
 }
 
 /** 소켓 연결에 저장하는 인증된 사용자 정보 (JWT에서 추출) */
