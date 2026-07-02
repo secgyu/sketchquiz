@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Clock, Globe, Hash, Loader2, Lock, Sparkles, Users } from "lucide-react";
+import { ArrowLeft, Clock, Globe, Hash, Lock, Sparkles, Users } from "lucide-react";
 
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useDelayedVisible } from "@/hooks/useDelayedVisible";
 import { useSocket } from "@/hooks/useSocket";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { useRoomStore } from "@/store/roomStore";
 
 const CREATE_TIMEOUT_MS = 8000;
-// 생성이 즉시 끝나도 스피너가 최소 이만큼은 보이도록 해 "눌린 느낌"을 준다.
-const MIN_SPINNER_MS = 400;
 
 const ROUND_OPTIONS = [3, 5, 7];
 const TIME_OPTIONS = [60, 80, 100];
@@ -75,8 +75,9 @@ export function CreateRoomScreen() {
   // 서버가 코드를 발급한 뒤에야 대기실로 이동할 수 있으므로 응답을 기다린다.
   const [creating, setCreating] = useState(false);
   const creatingRef = useRef(false);
-  const startedAtRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // 로딩 오버레이는 "지연 표시 + 최소 유지"로 깜빡임을 막는다(빠르면 아예 안 뜸).
+  const showOverlay = useDelayedVisible(creating);
 
   const stopCreating = () => {
     creatingRef.current = false;
@@ -88,12 +89,8 @@ export function CreateRoomScreen() {
     const onRoomState = (state: Parameters<typeof setRoom>[0]) => {
       setRoom(state);
       if (creatingRef.current) {
-        clearTimeout(timerRef.current); // 8초 실패 안전장치 취소
-        const wait = Math.max(0, MIN_SPINNER_MS - (performance.now() - startedAtRef.current));
-        timerRef.current = setTimeout(() => {
-          stopCreating();
-          navigate(`/room/${state.code}`);
-        }, wait);
+        stopCreating();
+        navigate(`/room/${state.code}`);
       }
     };
     const onRoomError = ({ message }: { message: string }) => {
@@ -114,7 +111,6 @@ export function CreateRoomScreen() {
     setError("");
     creatingRef.current = true;
     setCreating(true);
-    startedAtRef.current = performance.now();
     // 서버 응답이 없을 때 버튼이 영원히 잠기지 않도록 안전 타임아웃을 건다.
     timerRef.current = setTimeout(() => {
       stopCreating();
@@ -127,6 +123,7 @@ export function CreateRoomScreen() {
 
   return (
     <div className="brutal-bg flex min-h-svh items-center justify-center p-4">
+      {showOverlay && <LoadingOverlay message={connected ? "방 생성 중…" : "서버에 연결 중…"} />}
       <main className="w-full max-w-md rounded-2xl border-[3px] border-ink bg-white p-7 shadow-hard-lg">
         <div className="flex items-center gap-3">
           <button
@@ -220,16 +217,7 @@ export function CreateRoomScreen() {
           )}
 
           <Button size="lg" variant="pink" onClick={handleCreate} disabled={creating} className="w-full text-white">
-            {creating ? (
-              <>
-                <Loader2 className="animate-spin" strokeWidth={2.5} />
-                {connected ? "만드는 중…" : "연결 중…"}
-              </>
-            ) : (
-              <>
-                <Sparkles strokeWidth={2.5} />방 만들기
-              </>
-            )}
+            <Sparkles strokeWidth={2.5} />방 만들기
           </Button>
         </div>
       </main>
