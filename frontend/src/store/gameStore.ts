@@ -24,6 +24,7 @@ interface GameStore {
   duration: number; // 현재 단계 제한시간(초)
   deadline: number; // 종료 시각(epoch ms) → 마운트 시점과 무관하게 남은시간 계산
   myWord: string; // 출제자 본인이 정한 단어(로컬 표시용, 남에겐 안 감)
+  choices: string[]; // 출제자 본인에게만 온 3지선다 후보 (선택 전까지)
   correctIds: string[]; // 이번 턴 정답자 id (체크 표시용)
   messages: ChatMessage[];
   ranking: Player[]; // game:ended 최종 순위
@@ -31,6 +32,7 @@ interface GameStore {
   reveal: TurnReveal | null; // 턴 종료 공개 오버레이 (없으면 null)
 
   onTurn: (p: { round: number; totalRounds: number; drawerId: string; selectDuration: number }) => void;
+  onWordChoices: (choices: string[]) => void;
   onTurnStart: (p: { wordLength: number; duration: number }) => void;
   onTurnEnd: (p: TurnReveal & { duration: number }) => void;
   onChat: (p: { nickname: string; text: string }) => void;
@@ -52,6 +54,7 @@ const initial = {
   duration: 0,
   deadline: 0,
   myWord: "",
+  choices: [] as string[],
   correctIds: [] as string[],
   messages: [] as ChatMessage[],
   ranking: [] as Player[],
@@ -80,6 +83,7 @@ export const useGameStore = create<GameStore>((set) => ({
       duration: selectDuration,
       deadline: Date.now() + selectDuration * 1000,
       myWord: "",
+      choices: [], // 새 턴 시작 → 후보는 word-choices로 다시 채워진다(출제자 한정)
       correctIds: [],
       reveal: null, // 이전 턴 공개 오버레이 제거
       // 채팅 로그는 게임 내내 유지하고, 새 게임(직전 phase가 idle)일 때만 비운다.
@@ -87,8 +91,10 @@ export const useGameStore = create<GameStore>((set) => ({
     }));
   },
 
+  onWordChoices: (choices) => set({ choices }),
+
   onTurnStart: ({ wordLength, duration }) =>
-    set({ phase: "drawing", wordLength, duration, deadline: Date.now() + duration * 1000 }),
+    set({ phase: "drawing", wordLength, duration, deadline: Date.now() + duration * 1000, choices: [] }),
 
   onTurnEnd: ({ word, correctGuessers, players, duration }) =>
     set((s) => ({

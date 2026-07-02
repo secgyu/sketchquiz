@@ -60,7 +60,7 @@ export interface ServerToClientEvents {
   "room:error": (payload: { message: string }) => void;
   "room:state": (state: RoomState) => void;
   "game:turn": (payload: { round: number; totalRounds: number; drawerId: string; selectDuration: number }) => void;
-  "game:word-request": (payload: Record<string, never>) => void;
+  "game:word-choices": (payload: { choices: string[]; duration: number }) => void;
   "game:turn-start": (payload: { wordLength: number; duration: number }) => void;
   "draw:stroke": (stroke: DrawStroke) => void;
   "draw:clear": () => void;

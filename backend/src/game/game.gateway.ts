@@ -189,8 +189,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (room.game.word) return; // 이미 정한 턴
 
     const trimmed = word?.trim();
-    if (!trimmed) {
-      client.emit('room:error', { message: '단어를 입력해 주세요.' });
+    // 제시된 3지선다 후보 중에서만 고를 수 있다(임의 단어 방지).
+    if (!trimmed || !room.game.choices.includes(trimmed)) {
+      client.emit('room:error', { message: '제시된 단어 중에서 골라 주세요.' });
       return;
     }
 
@@ -259,7 +260,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       drawerId: game.drawerId,
       selectDuration: WORD_SELECT_SECONDS,
     });
-    this.server.to(game.drawerId).emit('game:word-request', {});
+    // 후보 단어는 출제자에게만 보낸다(추측자에게 노출되면 안 됨).
+    this.server.to(game.drawerId).emit('game:word-choices', {
+      choices: game.choices,
+      duration: WORD_SELECT_SECONDS,
+    });
 
     // 출제자가 제한시간 내에 단어를 정하지 않으면 턴을 건너뛴다.
     this.setTurnTimer(room.code, WORD_SELECT_SECONDS);

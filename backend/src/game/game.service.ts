@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import type { GameState, GuessResult, Room } from './game.types';
+import { pickChoices } from './words';
 
 export const ROUND_SECONDS = 80; // 그리기/맞히기 제한시간
 export const WORD_SELECT_SECONDS = 20; // 출제자 단어 입력 제한시간
 export const TURN_END_SECONDS = 5; // 턴 종료 후 정답 공개 연출 시간
+export const WORD_CHOICE_COUNT = 3; // 출제자에게 제시하는 3지선다 후보 수
 export const DEFAULT_TOTAL_ROUNDS = 3;
 const DRAWER_POINTS = 30; // 정답자 1명당 출제자에게 주는 점수
 
@@ -25,6 +27,7 @@ export class GameService {
       turnIndex: 0,
       drawerId: order[0],
       word: '',
+      choices: pickChoices(WORD_CHOICE_COUNT),
       correctGuessers: [],
     };
     room.game = game;
@@ -47,6 +50,7 @@ export class GameService {
     }
     game.drawerId = game.order[game.turnIndex];
     game.word = '';
+    game.choices = pickChoices(WORD_CHOICE_COUNT);
     game.correctGuessers = [];
     return game;
   }

@@ -13,7 +13,8 @@ export interface GameState {
   order: string[]; // 게임 시작 시점 플레이어 id 순서 (턴 순서)
   turnIndex: number; // 현재 라운드 내 턴 위치 (order 인덱스)
   drawerId: string; // 현재 출제자 socket id
-  word: string; // 현재 제시어 (서버 비밀)
+  word: string; // 현재 제시어 (서버 비밀). 출제자가 choices 중 하나를 고르기 전엔 빈 문자열
+  choices: string[]; // 이번 턴 출제자에게 제시하는 3지선다 후보 (출제자에게만 전송)
   correctGuessers: string[]; // 이번 턴에 정답을 맞힌 플레이어 id (순서 = 점수 차등)
 }
 

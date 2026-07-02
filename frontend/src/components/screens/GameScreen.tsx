@@ -7,7 +7,6 @@ import { ChatPanel } from "@/components/game/ChatPanel";
 import { Confetti } from "@/components/game/Confetti";
 import { PlayerList } from "@/components/game/PlayerList";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useSocket } from "@/hooks/useSocket";
 import { disconnectSocket } from "@/lib/socket";
 import { cn } from "@/lib/utils";
@@ -38,14 +37,13 @@ export function GameScreen() {
   const room = useRoomStore((s) => s.room);
   const resetRoom = useRoomStore((s) => s.reset);
   const resetGame = useGameStore((s) => s.reset);
-  const { phase, round, totalRounds, drawerId, wordLength, duration, deadline, myWord, correctIds, turnKey } =
+  const { phase, round, totalRounds, drawerId, wordLength, duration, deadline, myWord, choices, correctIds, turnKey } =
     useGameStore();
   const setMyWord = useGameStore((s) => s.setMyWord);
 
   const correctFlash = useGameStore((s) => s.correctFlash);
   const reveal = useGameStore((s) => s.reveal);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [wordDraft, setWordDraft] = useState("");
   const [showCorrect, setShowCorrect] = useState(false);
 
   const isDrawer = socket.id === drawerId;
@@ -72,12 +70,10 @@ export function GameScreen() {
     hasGuessed: correctIds.includes(p.id),
   }));
 
-  const submitWord = () => {
-    const word = wordDraft.trim();
-    if (!word) return;
+  const pickWord = (word: string) => {
+    if (myWord) return; // 이미 골랐으면 중복 전송 방지
     socket.emit("game:set-word", { word });
     setMyWord(word);
-    setWordDraft("");
   };
 
   const handleLeave = () => {
@@ -182,12 +178,7 @@ export function GameScreen() {
             {phase === "drawing" ? (
               <CanvasBoard key={turnKey} canDraw={isDrawer} />
             ) : (
-              <WaitingPanel
-                isDrawer={isDrawer && phase === "selecting"}
-                wordDraft={wordDraft}
-                setWordDraft={setWordDraft}
-                submitWord={submitWord}
-              />
+              <WaitingPanel isDrawer={isDrawer && phase === "selecting"} choices={choices} onPick={pickWord} />
             )}
           </section>
 
@@ -208,18 +199,8 @@ export function GameScreen() {
   );
 }
 
-/** 그리기 전(단어 선택) 화면: 출제자는 단어 입력, 나머지는 대기 안내. */
-function WaitingPanel({
-  isDrawer,
-  wordDraft,
-  setWordDraft,
-  submitWord,
-}: {
-  isDrawer: boolean;
-  wordDraft: string;
-  setWordDraft: (v: string) => void;
-  submitWord: () => void;
-}) {
+/** 그리기 전(단어 선택) 화면: 출제자는 3지선다에서 하나 선택, 나머지는 대기 안내. */
+function WaitingPanel({ isDrawer, choices, onPick }: { isDrawer: boolean; choices: string[]; onPick: (w: string) => void }) {
   return (
     <div className="flex h-full min-h-[340px] flex-col items-center justify-center rounded-xl border-[3px] border-ink bg-white p-6 text-center shadow-hard-lg">
       <span className="mb-4 flex size-14 -rotate-6 items-center justify-center rounded-xl border-[3px] border-ink bg-brand-yellow shadow-hard">
@@ -227,25 +208,18 @@ function WaitingPanel({
       </span>
       {isDrawer ? (
         <>
-          <p className="mb-4 text-lg font-black text-ink">그릴 제시어를 정해 주세요!</p>
-          <form
-            className="flex w-full max-w-xs gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              submitWord();
-            }}
-          >
-            <Input
-              value={wordDraft}
-              onChange={(e) => setWordDraft(e.target.value)}
-              placeholder="예: 고양이"
-              autoComplete="off"
-              autoFocus
-            />
-            <Button type="submit" variant="green">
-              결정
-            </Button>
-          </form>
+          <p className="mb-4 text-lg font-black text-ink">그릴 제시어를 골라 주세요!</p>
+          <div className="flex w-full max-w-xs flex-col gap-3">
+            {choices.length === 0 ? (
+              <p className="text-sm font-bold text-muted-foreground">후보를 불러오는 중…</p>
+            ) : (
+              choices.map((word) => (
+                <Button key={word} type="button" variant="yellow" className="w-full text-lg" onClick={() => onPick(word)}>
+                  {word}
+                </Button>
+              ))
+            )}
+          </div>
         </>
       ) : (
         <p className="text-lg font-black text-ink">출제자가 제시어를 고르고 있어요…</p>

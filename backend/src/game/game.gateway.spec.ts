@@ -62,15 +62,17 @@ describe('GameGateway 턴 종료 연출', () => {
     const guesser = mockClient('g');
     startTwoPlayerGame(host, guesser);
 
-    gateway.handleSetWord(host, { word: 'apple' });
+    // 제시된 3지선다 후보 중 하나만 고를 수 있다.
+    const word = roomService.getRoomByPlayer(host.id)!.game!.choices[0];
+    gateway.handleSetWord(host, { word });
     const turnsBefore = events('game:turn').length;
 
-    gateway.handleChat(guesser, { text: 'apple' });
+    gateway.handleChat(guesser, { text: word });
 
     const end = events('game:turn-end');
     expect(end).toHaveLength(1);
     expect(end[0].payload).toMatchObject({
-      word: 'apple',
+      word,
       correctGuessers: ['user-g'],
     });
     // 아직 다음 턴은 시작되지 않는다(공개 연출 대기 중).
