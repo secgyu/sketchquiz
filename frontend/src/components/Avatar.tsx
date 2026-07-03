@@ -1,4 +1,4 @@
-import { avatarColor } from "@/lib/mock";
+import { avatarColor } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 
 const SIZES = {
@@ -24,7 +24,7 @@ export function Avatar({ nickname, avatar, size = "md", className }: AvatarProps
         "inline-flex shrink-0 items-center justify-center border-ink font-extrabold text-ink",
         avatarColor(nickname),
         SIZES[size],
-        className
+        className,
       )}
     >
       {content}

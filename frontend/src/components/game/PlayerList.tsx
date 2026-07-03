@@ -1,11 +1,11 @@
 import { Check, Crown, Pencil } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
-import type { Player } from "@/lib/mock";
+import type { PlayerView } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface PlayerListProps {
-  players: Player[];
+  players: PlayerView[];
   ranked?: boolean;
   showStatus?: boolean;
   /** "list": 세로 목록(기본). "strip": 모바일용 가로 스크롤 칩. */

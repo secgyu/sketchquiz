@@ -1,13 +1,14 @@
 import { useState, type ReactNode } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useParams } from "react-router";
 import { Check, Clock, Copy, DoorOpen, Hash, Pencil, Play, Users } from "lucide-react";
 
 import { PlayerList } from "@/components/game/PlayerList";
 import { RoomOptionsForm, type RoomOptionsValue } from "@/components/RoomOptionsForm";
 import { Button } from "@/components/ui/button";
+import { useLeaveRoom } from "@/hooks/useLeaveRoom";
 import { useSocket } from "@/hooks/useSocket";
-import { DEFAULT_ROUND_SECONDS, DEFAULT_TOTAL_ROUNDS } from "@/lib/mock";
-import { disconnectSocket, type CreateRoomOptions } from "@/lib/socket";
+import type { CreateRoomOptions } from "@/lib/socket";
+import { DEFAULT_ROUND_SECONDS, DEFAULT_TOTAL_ROUNDS, decoratePlayers } from "@/lib/types";
 import { useRoomStore } from "@/store/roomStore";
 
 function SettingItem({ icon, label, value, color }: { icon: ReactNode; label: string; value: string; color: string }) {
@@ -23,22 +24,16 @@ function SettingItem({ icon, label, value, color }: { icon: ReactNode; label: st
 }
 
 export function LobbyScreen() {
-  const navigate = useNavigate();
   const { code = "" } = useParams();
   const { socket } = useSocket();
   const room = useRoomStore((s) => s.room);
   const error = useRoomStore((s) => s.error);
-  const resetRoom = useRoomStore((s) => s.reset);
+  const leaveRoom = useLeaveRoom();
   const [copied, setCopied] = useState(false);
 
   const isHost = !!room && socket.id === room.hostId;
-  // 서버 플레이어(id·nickname·score)를 화면용 형태로 변환한다(방장 왕관은 hostId로 판별).
-  const players = (room?.players ?? []).map((p) => ({
-    ...p,
-    isHost: p.id === room?.hostId,
-    isDrawing: false,
-    hasGuessed: false,
-  }));
+  // 서버 플레이어를 화면용으로 변환한다(대기실이라 출제자/정답 상태는 없음, 방장 왕관만 hostId로 판별).
+  const players = decoratePlayers(room?.players ?? [], { hostId: room?.hostId });
 
   // 방장 설정 편집: 열 때 현재 방 설정을 초안으로 복사한다.
   const [draft, setDraft] = useState<RoomOptionsValue | null>(null);
@@ -73,13 +68,6 @@ export function LobbyScreen() {
     await navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
-  };
-
-  const handleLeave = () => {
-    // 서버는 소켓 연결 종료로 방 퇴장을 처리한다(별도 leave 이벤트 없음).
-    disconnectSocket();
-    resetRoom();
-    navigate("/");
   };
 
   return (
@@ -213,7 +201,7 @@ export function LobbyScreen() {
 
         <button
           type="button"
-          onClick={handleLeave}
+          onClick={leaveRoom}
           className="mx-auto mt-4 flex items-center gap-1.5 text-sm font-black text-muted-foreground transition-colors hover:text-ink"
         >
           <DoorOpen className="size-4" strokeWidth={2.5} />

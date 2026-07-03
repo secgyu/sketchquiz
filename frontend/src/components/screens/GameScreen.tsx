@@ -1,16 +1,16 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
 import { Clock, DoorOpen, Pencil } from "lucide-react";
 
 import { CanvasBoard } from "@/components/game/CanvasBoard";
 import { ChatPanel } from "@/components/game/ChatPanel";
-import { Confetti } from "@/components/game/Confetti";
+import { CorrectFlash } from "@/components/game/CorrectFlash";
 import { PlayerList } from "@/components/game/PlayerList";
+import { RevealOverlay } from "@/components/game/RevealOverlay";
 import { SoundToggle } from "@/components/SoundToggle";
 import { Button } from "@/components/ui/button";
-import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { useCountdown } from "@/hooks/useCountdown";
+import { useLeaveRoom } from "@/hooks/useLeaveRoom";
 import { useSocket } from "@/hooks/useSocket";
-import { disconnectSocket } from "@/lib/socket";
+import { decoratePlayers } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
 import { useRoomStore } from "@/store/roomStore";
@@ -33,45 +33,25 @@ function WordTiles({ length, word }: { length: number; word?: string }) {
 }
 
 export function GameScreen() {
-  const navigate = useNavigate();
   const { socket } = useSocket();
 
   const room = useRoomStore((s) => s.room);
-  const resetRoom = useRoomStore((s) => s.reset);
-  const resetGame = useGameStore((s) => s.reset);
   const { phase, round, totalRounds, drawerId, wordLength, duration, deadline, myWord, choices, correctIds, turnKey } =
     useGameStore();
   const setMyWord = useGameStore((s) => s.setMyWord);
 
   const correctFlash = useGameStore((s) => s.correctFlash);
   const reveal = useGameStore((s) => s.reveal);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [showCorrect, setShowCorrect] = useState(false);
+  const timeLeft = useCountdown(deadline);
+  const leaveRoom = useLeaveRoom();
 
   const isDrawer = socket.id === drawerId;
-  const reduced = usePrefersReducedMotion();
 
-  useEffect(() => {
-    const tick = () => setTimeLeft(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
-    tick();
-    const id = setInterval(tick, 250);
-    return () => clearInterval(id);
-  }, [deadline]);
-
-  // 본인이 정답을 맞히면 "정답!" 오버레이를 잠깐 띄운다.
-  useEffect(() => {
-    if (correctFlash === 0) return;
-    setShowCorrect(true);
-    const id = setTimeout(() => setShowCorrect(false), 1500);
-    return () => clearTimeout(id);
-  }, [correctFlash]);
-
-  const players = (room?.players ?? []).map((p) => ({
-    ...p,
-    isHost: p.id === room?.hostId,
-    isDrawing: p.id === drawerId,
-    hasGuessed: correctIds.includes(p.id),
-  }));
+  const players = decoratePlayers(room?.players ?? [], {
+    hostId: room?.hostId,
+    drawerId,
+    correctIds,
+  });
 
   const pickWord = (word: string) => {
     if (myWord) return; // 이미 골랐으면 중복 전송 방지
@@ -79,62 +59,13 @@ export function GameScreen() {
     setMyWord(word);
   };
 
-  const handleLeave = () => {
-    disconnectSocket();
-    resetGame();
-    resetRoom();
-    navigate("/");
-  };
-
   const urgent = timeLeft <= 10;
   const progress = duration > 0 ? (timeLeft / duration) * 100 : 0;
 
   return (
     <div className="brutal-bg h-svh overflow-hidden p-4">
-      {showCorrect && (
-        <>
-          {!reduced && <Confetti />}
-          <div role="status" className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
-            <span className="animate-in zoom-in-50 fade-in rotate-[-4deg] rounded-2xl border-4 border-ink bg-brand-green px-10 py-5 text-5xl font-black text-ink shadow-hard-lg duration-300">
-              정답!
-            </span>
-          </div>
-        </>
-      )}
-
-      {reveal && (
-        <div
-          role="status"
-          className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm duration-200"
-        >
-          <div className="animate-in zoom-in-95 w-full max-w-sm rounded-2xl border-[3px] border-ink bg-white p-6 text-center shadow-hard-lg duration-200">
-            <p className="text-sm font-black uppercase text-muted-foreground">정답 공개</p>
-            <p className="mt-1 -rotate-1 text-4xl font-black text-ink">{reveal.word}</p>
-            <p className="mt-3 text-sm font-black text-ink">
-              {reveal.correctGuessers.length > 0
-                ? `${reveal.correctGuessers.join(", ")} 정답!`
-                : "이번엔 아무도 못 맞혔어요"}
-            </p>
-            <div className="mt-4 space-y-1.5 text-left">
-              {[...reveal.players]
-                .sort((a, b) => b.score - a.score)
-                .slice(0, 5)
-                .map((p, i) => (
-                  <div
-                    key={`${i}-${p.nickname}`}
-                    className="flex items-center justify-between rounded-lg border-2 border-ink bg-brand-yellow/40 px-3 py-1.5 text-sm font-black text-ink"
-                  >
-                    <span className="truncate">
-                      {i + 1}. {p.nickname}
-                    </span>
-                    <span className="shrink-0 tabular-nums">{p.score}점</span>
-                  </div>
-                ))}
-            </div>
-            <p className="mt-4 text-xs font-bold text-muted-foreground">잠시 후 다음 턴이 시작돼요…</p>
-          </div>
-        </div>
-      )}
+      <CorrectFlash trigger={correctFlash} />
+      {reveal && <RevealOverlay reveal={reveal} />}
       <div className="mx-auto flex h-full max-w-7xl flex-col gap-3">
         <header className="flex flex-wrap items-center justify-between gap-4 rounded-xl border-[3px] border-ink bg-white px-4 py-3 shadow-hard">
           <div className="rounded-lg border-2 border-ink bg-brand-purple px-3 py-1.5 text-sm font-black text-ink">
@@ -200,7 +131,7 @@ export function GameScreen() {
 
         <button
           type="button"
-          onClick={handleLeave}
+          onClick={leaveRoom}
           className="mx-auto flex shrink-0 items-center gap-1.5 border-2 border-ink bg-white px-3 py-1 text-sm font-black text-ink shadow-[2px_2px_0_0_var(--color-ink)] transition-transform hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
         >
           <DoorOpen className="size-4" strokeWidth={2.5} />방 나가기

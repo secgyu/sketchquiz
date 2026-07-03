@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { ChatMessage } from "@/lib/mock";
+import type { ChatMessage } from "@/lib/types";
 import type { DrawStroke, Player } from "@/lib/socket";
 import { useRoomStore } from "@/store/roomStore";
 

@@ -4,9 +4,30 @@ const KEY = "sq_avatar";
 
 /** 고를 수 있는 이모지 팔레트 */
 export const AVATARS = [
-  "🐱", "🐶", "🦊", "🐰", "🐻", "🐼", "🐸", "🐵",
-  "🦁", "🐯", "🐨", "🐷", "🦄", "🐙", "🐧", "🐢",
-  "🦉", "🐝", "🦋", "🌟", "🍀", "🔥", "🎈", "👾",
+  "🐱",
+  "🐶",
+  "🦊",
+  "🐰",
+  "🐻",
+  "🐼",
+  "🐸",
+  "🐵",
+  "🦁",
+  "🐯",
+  "🐨",
+  "🐷",
+  "🦄",
+  "🐙",
+  "🐧",
+  "🐢",
+  "🦉",
+  "🐝",
+  "🦋",
+  "🌟",
+  "🍀",
+  "🔥",
+  "🎈",
+  "👾",
 ];
 
 export function getAvatar(): string {
@@ -16,4 +37,20 @@ export function getAvatar(): string {
 export function setAvatar(emoji: string): void {
   if (emoji) localStorage.setItem(KEY, emoji);
   else localStorage.removeItem(KEY);
+}
+
+const AVATAR_COLORS = [
+  "bg-brand-yellow",
+  "bg-brand-pink",
+  "bg-brand-blue",
+  "bg-brand-green",
+  "bg-brand-purple",
+  "bg-brand-orange",
+];
+
+/** 닉네임을 안정적으로 색상에 매핑한다 (같은 이름 → 항상 같은 색, 이모지 아바타가 없을 때 배경용). */
+export function avatarColor(nickname: string): string {
+  let hash = 0;
+  for (const ch of nickname) hash = (hash + ch.charCodeAt(0)) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[hash];
 }

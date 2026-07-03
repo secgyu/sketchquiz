@@ -4,11 +4,11 @@ import { DoorOpen, RotateCcw, Share2, Trophy } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
+import { useLeaveRoom } from "@/hooks/useLeaveRoom";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
-import { disconnectSocket, type Player } from "@/lib/socket";
+import type { Player } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
-import { useRoomStore } from "@/store/roomStore";
 import { toast } from "@/store/toastStore";
 
 const PODIUM_STYLE = [
@@ -99,13 +99,7 @@ export function ResultScreen() {
 
   const podium = ranking.slice(0, 3);
   const rest = ranking.slice(3);
-
-  const handleLeave = () => {
-    disconnectSocket();
-    useGameStore.getState().reset();
-    useRoomStore.getState().reset();
-    navigate("/");
-  };
+  const leaveRoom = useLeaveRoom();
 
   const handleShare = async () => {
     const lines = ranking.map(
@@ -162,7 +156,7 @@ export function ResultScreen() {
           <Button size="lg" variant="blue" onClick={handleShare} aria-label="결과 공유">
             <Share2 strokeWidth={2.5} />
           </Button>
-          <Button size="lg" variant="default" onClick={handleLeave} aria-label="나가기">
+          <Button size="lg" variant="default" onClick={leaveRoom} aria-label="나가기">
             <DoorOpen strokeWidth={2.5} />
           </Button>
         </div>

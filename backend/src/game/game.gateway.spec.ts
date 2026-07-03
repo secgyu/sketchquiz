@@ -2,8 +2,11 @@ import type { JwtService } from '@nestjs/jwt';
 import type { Server, Socket } from 'socket.io';
 import { GameGateway } from './game.gateway';
 import { GameService, TURN_END_SECONDS } from './game.service';
+import { ReconnectManager } from './reconnect.manager';
 import type { RoomPersistenceService } from './room-persistence.service';
+import { RoomBroadcaster } from './room.broadcaster';
 import { RoomService } from './room.service';
+import { TurnManager } from './turn.manager';
 
 // 영속화는 테스트 대상이 아니므로 no-op 스텁으로 주입한다(스냅샷/복원 비활성).
 const persistenceStub = {
@@ -49,13 +52,20 @@ describe('GameGateway 턴 종료 연출', () => {
     jest.useFakeTimers();
     emitted = [];
     roomService = new RoomService();
+    const gameService = new GameService();
+    const broadcaster = new RoomBroadcaster(roomService);
+    const turns = new TurnManager(roomService, gameService, broadcaster);
+    const reconnect = new ReconnectManager(roomService, broadcaster, turns);
     gateway = new GameGateway(
       roomService,
-      new GameService(),
+      gameService,
       {} as JwtService,
       persistenceStub,
+      broadcaster,
+      turns,
+      reconnect,
     );
-    gateway.server = mockServer(emitted);
+    gateway.afterInit(mockServer(emitted));
   });
 
   afterEach(() => jest.useRealTimers());
