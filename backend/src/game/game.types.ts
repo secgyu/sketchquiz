@@ -111,4 +111,5 @@ export interface DrawStroke {
   y1: number;
   color: string;
   width: number;
+  start?: boolean; // 드래그 시작 선분 표시 → 되돌리기(undo)가 한 획 단위를 찾는 데 사용
 }

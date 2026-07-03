@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
-import { Eraser, Trash2 } from "lucide-react";
+import { Eraser, Palette, Trash2, Undo2 } from "lucide-react";
 
 import { useSocket } from "@/hooks/useSocket";
 import type { DrawStroke } from "@/lib/socket";
@@ -31,6 +31,7 @@ export function CanvasBoard({ canDraw }: CanvasBoardProps) {
   const { socket } = useSocket();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
+  const newStrokeRef = useRef(false); // 이번 드래그의 첫 선분인지 (되돌리기용 획 경계 표시)
   const lastRef = useRef<{ x: number; y: number } | null>(null);
 
   const [color, setColor] = useState(COLORS[0]);
@@ -57,6 +58,15 @@ export function CanvasBoard({ canDraw }: CanvasBoardProps) {
     c?.getContext("2d")?.clearRect(0, 0, c.width, c.height);
   }, []);
 
+  // 되돌리기 후 서버가 보내주는 '남은 획 전체'로 캔버스를 다시 그린다(서버 버퍼가 진실의 원천).
+  const replaceStrokes = useCallback(
+    (strokes: DrawStroke[]) => {
+      clearCanvas();
+      strokes.forEach(drawSegment);
+    },
+    [clearCanvas, drawSegment],
+  );
+
   // 캔버스 백킹 크기를 표시 크기에 맞춘다 (마운트 시 1회; 턴마다 key로 리마운트되며 초기화).
   // 재접속으로 리마운트된 경우, 서버가 보내준 지금까지의 획을 한 번 재생해 그림을 복원한다.
   useEffect(() => {
@@ -70,11 +80,13 @@ export function CanvasBoard({ canDraw }: CanvasBoardProps) {
   useEffect(() => {
     socket.on("draw:stroke", drawSegment);
     socket.on("draw:clear", clearCanvas);
+    socket.on("draw:strokes", replaceStrokes);
     return () => {
       socket.off("draw:stroke", drawSegment);
       socket.off("draw:clear", clearCanvas);
+      socket.off("draw:strokes", replaceStrokes);
     };
-  }, [socket, drawSegment, clearCanvas]);
+  }, [socket, drawSegment, clearCanvas, replaceStrokes]);
 
   const toNorm = (e: PointerEvent) => {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -84,6 +96,7 @@ export function CanvasBoard({ canDraw }: CanvasBoardProps) {
   const handleDown = (e: PointerEvent) => {
     if (!canDraw) return;
     drawingRef.current = true;
+    newStrokeRef.current = true; // 이 드래그의 첫 선분을 표시
     lastRef.current = toNorm(e);
   };
 
@@ -97,7 +110,9 @@ export function CanvasBoard({ canDraw }: CanvasBoardProps) {
       y1: p.y,
       color: erasing ? ERASER_COLOR : color,
       width: size,
+      start: newStrokeRef.current,
     };
+    newStrokeRef.current = false;
     drawSegment(stroke);
     socket.emit("draw:stroke", stroke);
     lastRef.current = p;
@@ -112,6 +127,9 @@ export function CanvasBoard({ canDraw }: CanvasBoardProps) {
     clearCanvas();
     socket.emit("draw:clear");
   };
+
+  // 서버가 남은 획을 draw:strokes로 되돌려 주므로 로컬에서 직접 지우지 않는다(권위=서버 버퍼).
+  const handleUndo = () => socket.emit("draw:undo");
 
   return (
     <div className="flex h-full flex-col gap-3">
@@ -148,6 +166,22 @@ export function CanvasBoard({ canDraw }: CanvasBoardProps) {
                 style={{ backgroundColor: c }}
               />
             ))}
+            <label
+              title="사용자 지정 색상"
+              className="press flex size-7 cursor-pointer items-center justify-center rounded-md border-2 border-ink bg-white"
+            >
+              <Palette className="size-4 text-ink" strokeWidth={2.5} />
+              <input
+                type="color"
+                value={color}
+                aria-label="사용자 지정 색상 선택"
+                onChange={(e) => {
+                  setColor(e.target.value);
+                  setErasing(false);
+                }}
+                className="sr-only"
+              />
+            </label>
           </div>
 
           <div className="h-9 w-0.5 bg-ink" />
@@ -182,6 +216,9 @@ export function CanvasBoard({ canDraw }: CanvasBoardProps) {
               onClick={() => setErasing((v) => !v)}
             >
               <Eraser strokeWidth={2.5} />
+            </Button>
+            <Button type="button" size="icon-sm" variant="default" aria-label="되돌리기" onClick={handleUndo}>
+              <Undo2 strokeWidth={2.5} />
             </Button>
             <Button type="button" size="icon-sm" variant="danger" aria-label="전체 지우기" onClick={handleClear}>
               <Trash2 strokeWidth={2.5} />

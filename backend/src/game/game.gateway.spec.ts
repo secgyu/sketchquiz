@@ -142,6 +142,36 @@ describe('GameGateway 턴 종료 연출', () => {
     expect(errSpy).toHaveBeenCalledWith('room:error', expect.any(Object));
   });
 
+  it('되돌리기는 마지막 획(드래그) 하나만 지우고 방 전체에 남은 획을 재동기화한다', () => {
+    const host = mockClient('h'); // 첫 출제자
+    const guesser = mockClient('g');
+    startTwoPlayerGame(host, guesser);
+    const room = roomService.getRoomByPlayer('h')!;
+    gateway.handleSetWord(host, { word: room.game!.choices[0] }); // drawing 단계 진입
+
+    const seg = (start: boolean) => ({
+      x0: 0,
+      y0: 0,
+      x1: 1,
+      y1: 1,
+      color: '#000',
+      width: 4,
+      start,
+    });
+    // 획1(선분 2개) + 획2(선분 2개)
+    gateway.handleDrawStroke(host, seg(true));
+    gateway.handleDrawStroke(host, seg(false));
+    gateway.handleDrawStroke(host, seg(true));
+    gateway.handleDrawStroke(host, seg(false));
+    expect(room.game!.strokes).toHaveLength(4);
+
+    gateway.handleDrawUndo(host);
+
+    expect(room.game!.strokes).toHaveLength(2); // 마지막 획만 제거
+    const sync = events('draw:strokes');
+    expect(sync[sync.length - 1].payload).toHaveLength(2); // 남은 획을 방 전체에 재전송
+  });
+
   it('나가거나 접속이 끊긴 플레이어의 턴은 건너뛴다', () => {
     const host = mockClient('h'); // order[0]
     const g2 = mockClient('g2'); // order[1] — 도중에 끊길 사람

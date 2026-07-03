@@ -340,6 +340,24 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.to(room.code).emit('draw:clear');
   }
 
+  @SubscribeMessage('draw:undo')
+  handleDrawUndo(@ConnectedSocket() client: IoSocket) {
+    const room = this.roomService.getRoomByPlayer(client.id);
+    if (!room?.game || room.game.drawerId !== client.id) return;
+    const strokes = room.game.strokes;
+    // 마지막 '드래그 시작' 지점을 찾아 그 이후를 통째로 잘라낸다(한 획 되돌리기).
+    let cut = -1;
+    for (let i = strokes.length - 1; i >= 0; i--) {
+      if (strokes[i].start) {
+        cut = i;
+        break;
+      }
+    }
+    room.game.strokes = cut >= 0 ? strokes.slice(0, cut) : [];
+    // 버퍼가 진실의 원천 → 방 전체(출제자 포함)가 지우고 남은 획으로 다시 그린다.
+    this.server.to(room.code).emit('draw:strokes', room.game.strokes);
+  }
+
   @SubscribeMessage('chat:message')
   handleChat(
     @ConnectedSocket() client: IoSocket,

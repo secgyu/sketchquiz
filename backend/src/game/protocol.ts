@@ -75,6 +75,7 @@ export interface ServerToClientEvents {
   'game:ended': (payload: { ranking: Player[] }) => void;
   'draw:stroke': (stroke: DrawStroke) => void;
   'draw:clear': () => void;
+  'draw:strokes': (strokes: DrawStroke[]) => void; // 되돌리기 후 방 전체 캔버스 재동기화
   'chat:correct': (payload: { playerId: string; nickname: string }) => void;
   'chat:message': (payload: {
     playerId: string;
@@ -96,6 +97,7 @@ export interface ClientToServerEvents {
   'game:set-word': (payload: { word: string }) => void;
   'draw:stroke': (stroke: DrawStroke) => void;
   'draw:clear': () => void;
+  'draw:undo': () => void; // 출제자가 마지막 획을 되돌린다
   'chat:message': (payload: { text: string }) => void;
   'lobby:join': (ack: (rooms: PublicRoomSummary[]) => void) => void;
   'lobby:leave': () => void;
