@@ -129,6 +129,24 @@ describe('RoomService', () => {
       expect(summary.count).toBe(2);
       expect(summary.max).toBe(4);
     });
+
+    it('접속이 끊긴 사람은 인원수에서 제외한다', () => {
+      const room = service.createRoom('h1', 'u1', 'Alice', { maxPlayers: 4 });
+      service.joinRoom(room.code, 'p2', 'u2', 'Bob');
+      service.markDisconnected('p2'); // Bob 유예 중
+
+      const [summary] = service.listPublicRooms();
+      expect(summary.count).toBe(1); // 접속 중인 Alice만 카운트
+    });
+
+    it('전원이 접속 끊긴 방(유령 방)은 목록에서 숨긴다', () => {
+      const room = service.createRoom('h1', 'u1', 'Alice');
+      service.joinRoom(room.code, 'p2', 'u2', 'Bob');
+      service.markDisconnected('h1');
+      service.markDisconnected('p2');
+
+      expect(service.listPublicRooms()).toHaveLength(0);
+    });
   });
 
   describe('재접속 (markDisconnected + rebindPlayer)', () => {

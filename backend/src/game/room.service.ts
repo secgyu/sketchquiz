@@ -104,7 +104,11 @@ export class RoomService {
     return room;
   }
 
-  /** 공개방 목록. 비공개방은 제외하고, 진행중/대기중 상태를 함께 담는다. */
+  /**
+   * 공개방 목록. 비공개방은 제외하고, 진행중/대기중 상태를 함께 담는다.
+   * 인원수는 '접속 중'인 사람만 센다(재접속 유예 중 끊긴 사람은 제외).
+   * 아무도 접속하지 않은 방(전원 이탈, 유예 만료 대기)은 유령 방이므로 목록에서 숨긴다.
+   */
   listPublicRooms(): PublicRoomSummary[] {
     return [...this.rooms.values()]
       .filter((room) => room.isPublic)
@@ -112,12 +116,13 @@ export class RoomService {
         code: room.code,
         name: room.name,
         host: room.players.find((p) => p.id === room.hostId)?.nickname ?? '',
-        count: room.players.length,
+        count: room.players.filter((p) => p.connected).length,
         max: room.maxPlayers,
-        status: room.game ? 'playing' : 'waiting',
+        status: room.game ? ('playing' as const) : ('waiting' as const),
         round: room.totalRounds,
         createdAt: room.createdAt,
-      }));
+      }))
+      .filter((summary) => summary.count > 0);
   }
 
   /**
