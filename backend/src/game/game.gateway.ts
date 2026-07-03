@@ -198,7 +198,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.username(client),
       );
       void client.join(room.code);
+      // 진행 중인 방에 들어온 신규 참가자(드롭인): 턴 순서에 편입하고 현재 상태를 스냅샷으로 맞춰준다.
+      if (room.game && !room.game.order.includes(client.id)) {
+        room.game.order.push(client.id);
+      }
       this.server.to(room.code).emit('room:state', this.toState(room));
+      if (room.game) this.sendSync(client, room);
       this.emitLobbyUpdate(); // 인원 변동 반영
     } catch (error) {
       const message =

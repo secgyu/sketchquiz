@@ -94,4 +94,20 @@ describe('GameGateway 턴 종료 연출', () => {
     expect(events('game:turn-end')).toHaveLength(0); // 공개할 단어가 없으니 연출 생략
     expect(events('game:turn').length).toBe(turnsBefore + 1); // 곧바로 다음 턴
   });
+
+  it('진행 중인 방에 들어온 참가자는 턴 순서에 편입되고 상태 스냅샷을 받는다', () => {
+    const host = mockClient('h');
+    const guesser = mockClient('g');
+    startTwoPlayerGame(host, guesser);
+
+    const latecomer = mockClient('late');
+    const syncSpy = jest.spyOn(latecomer, 'emit');
+    const room = roomService.getRoomByPlayer(host.id)!;
+    gateway.handleJoin(latecomer, { code: room.code });
+
+    expect(room.game!.order).toContain('late'); // 턴 순서에 편입
+    expect(room.players).toHaveLength(3);
+    // 화면 복원용 스냅샷을 신규 참가자에게만 보냈다.
+    expect(syncSpy).toHaveBeenCalledWith('game:sync', expect.any(Object));
+  });
 });
