@@ -188,10 +188,23 @@ export function LobbyScreen() {
 
         {!draft &&
           (isHost ? (
-            <Button size="lg" variant="green" onClick={() => socket.emit("game:start")} className="mt-6 w-full text-lg">
-              <Play className="fill-ink" strokeWidth={2.5} />
-              게임 시작
-            </Button>
+            <>
+              <Button
+                size="lg"
+                variant="green"
+                onClick={() => socket.emit("game:start")}
+                disabled={players.length < 2}
+                className="mt-6 w-full text-lg"
+              >
+                <Play className="fill-ink" strokeWidth={2.5} />
+                게임 시작
+              </Button>
+              {players.length < 2 && (
+                <p className="mt-2 text-center text-xs font-bold text-muted-foreground">
+                  2명 이상 모이면 시작할 수 있어요
+                </p>
+              )}
+            </>
           ) : (
             <p className="mt-6 rounded-xl border-2 border-ink bg-brand-blue px-3 py-3 text-center text-sm font-black text-ink">
               방장이 게임을 시작하길 기다리는 중…

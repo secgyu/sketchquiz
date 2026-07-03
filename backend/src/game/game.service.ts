@@ -79,7 +79,10 @@ export class GameService {
     this.award(room, game.drawerId, DRAWER_POINTS);
     game.correctGuessers.push(guesserId);
 
-    const nonDrawerCount = room.players.length - 1;
+    // 접속이 끊긴 사람은 맞힐 수 없으니 조기 종료 판정에서 제외한다(연결된 추측자만 카운트).
+    const nonDrawerCount = room.players.filter(
+      (p) => p.connected && p.id !== game.drawerId,
+    ).length;
     return {
       status: 'correct',
       allGuessed: game.correctGuessers.length >= nonDrawerCount,

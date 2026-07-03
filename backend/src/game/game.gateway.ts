@@ -278,6 +278,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('room:error', { message: '이미 게임이 진행 중이에요.' });
       return;
     }
+    if (room.players.length < 2) {
+      client.emit('room:error', {
+        message: '2명 이상이어야 게임을 시작할 수 있어요.',
+      });
+      return;
+    }
     this.gameService.start(room);
     this.emitLobbyUpdate(); // 대기중 → 게임중 상태 반영
     this.announceTurn(room);
@@ -439,6 +445,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         (a, b) => b.score - a.score,
       );
       this.server.to(code).emit('game:ended', { ranking });
+      return;
+    }
+    // 나갔거나 접속이 끊긴 플레이어의 턴은 건너뛴다(아무도 못 그리는 죽은 턴 방지).
+    const drawer = room.players.find((p) => p.id === game.drawerId);
+    if (!drawer || !drawer.connected) {
+      this.advanceToNext(code);
       return;
     }
     this.announceTurn(room);

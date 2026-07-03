@@ -110,4 +110,38 @@ describe('GameGateway 턴 종료 연출', () => {
     // 화면 복원용 스냅샷을 신규 참가자에게만 보냈다.
     expect(syncSpy).toHaveBeenCalledWith('game:sync', expect.any(Object));
   });
+
+  it('혼자서는 게임을 시작할 수 없다', () => {
+    const host = mockClient('solo');
+    gateway.handleCreate(host, {});
+    const errSpy = jest.spyOn(host, 'emit');
+    gateway.handleStart(host);
+
+    expect(roomService.getRoomByPlayer('solo')!.game).toBeUndefined(); // 시작 안 됨
+    expect(errSpy).toHaveBeenCalledWith('room:error', expect.any(Object));
+  });
+
+  it('나가거나 접속이 끊긴 플레이어의 턴은 건너뛴다', () => {
+    const host = mockClient('h'); // order[0]
+    const g2 = mockClient('g2'); // order[1] — 도중에 끊길 사람
+    const g3 = mockClient('g3'); // order[2]
+    gateway.handleCreate(host, {});
+    const room = roomService.getRoomByPlayer('h')!;
+    gateway.handleJoin(g2, { code: room.code });
+    gateway.handleJoin(g3, { code: room.code });
+    gateway.handleStart(host);
+
+    gateway.handleDisconnect(g2); // 게임 중 → 유예(방엔 남되 connected=false)
+
+    // 호스트가 단어를 정하고, 연결된 유일한 추측자 g3가 맞히면 턴이 조기 종료된다.
+    const word = room.game!.choices[0];
+    gateway.handleSetWord(host, { word });
+    gateway.handleChat(g3, { text: word });
+    jest.advanceTimersByTime(TURN_END_SECONDS * 1000); // 공개 연출 뒤 다음 턴
+
+    const turns = events('game:turn');
+    const lastDrawer = (turns[turns.length - 1].payload as { drawerId: string })
+      .drawerId;
+    expect(lastDrawer).toBe('g3'); // g2(끊김)를 건너뛰고 g3가 출제자
+  });
 });
