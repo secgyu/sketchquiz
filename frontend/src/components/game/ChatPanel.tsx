@@ -92,6 +92,7 @@ export function ChatPanel({ canGuess = true }: { canGuess?: boolean }) {
           placeholder={canGuess ? "정답 입력!" : "출제자는 채팅할 수 없어요"}
           aria-label="정답 또는 채팅 입력"
           autoComplete="off"
+          maxLength={100}
           disabled={!canGuess}
         />
         <Button type="submit" size="icon" variant="green" aria-label="전송" disabled={!canGuess}>

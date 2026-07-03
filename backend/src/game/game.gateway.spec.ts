@@ -142,6 +142,33 @@ describe('GameGateway 턴 종료 연출', () => {
     expect(errSpy).toHaveBeenCalledWith('room:error', expect.any(Object));
   });
 
+  it('제시어가 그대로 담긴 채팅은 브로드캐스트하지 않는다(정답 노출 방지)', () => {
+    const host = mockClient('h'); // 출제자
+    const guesser = mockClient('g');
+    startTwoPlayerGame(host, guesser);
+    const room = roomService.getRoomByPlayer('h')!;
+    const word = room.game!.choices[0];
+    gateway.handleSetWord(host, { word });
+
+    // 출제자가 정답 단어를 채팅에 그대로 적어도 방에 퍼지지 않는다.
+    gateway.handleChat(host, { text: word });
+    expect(events('chat:message')).toHaveLength(0);
+
+    // 일반 잡담은 정상적으로 브로드캐스트된다.
+    gateway.handleChat(guesser, { text: '음 이거 뭐지?' });
+    expect(events('chat:message')).toHaveLength(1);
+  });
+
+  it('빈 채팅/잘못된 페이로드는 무시한다', () => {
+    const host = mockClient('h');
+    const guesser = mockClient('g');
+    startTwoPlayerGame(host, guesser);
+
+    gateway.handleChat(guesser, { text: '   ' });
+    gateway.handleChat(guesser, {} as { text: string }); // text 누락
+    expect(events('chat:message')).toHaveLength(0);
+  });
+
   it('되돌리기는 마지막 획(드래그) 하나만 지우고 방 전체에 남은 획을 재동기화한다', () => {
     const host = mockClient('h'); // 첫 출제자
     const guesser = mockClient('g');

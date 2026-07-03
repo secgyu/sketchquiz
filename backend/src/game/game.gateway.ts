@@ -34,6 +34,7 @@ import { RoomService } from './room.service';
 const LOBBY_ROOM = 'lobby'; // 공개방 목록을 구독하는 소켓들이 모이는 가상 방
 const RECONNECT_GRACE_MS = 60_000; // 게임 중 연결이 끊겨도 이 시간 안에 돌아오면 자리를 지켜준다
 const MAX_STROKES = 5000; // 재접속 복원용 획 버퍼 상한 (한 턴 기준, 메모리 폭주 방지)
+const MAX_CHAT_LENGTH = 200; // 채팅 한 줄 최대 길이 (도배·과대 페이로드 방어)
 
 // 실시간 통신 계약(protocol.ts)을 소켓 제네릭에 입혀 emit 페이로드를 컴파일 타임에 검증한다.
 type IoServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -369,11 +370,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('chat:message')
   handleChat(
     @ConnectedSocket() client: IoSocket,
-    @MessageBody() { text }: ChatMessagePayload,
+    @MessageBody() payload: ChatMessagePayload,
   ) {
     const room = this.roomService.getRoomByPlayer(client.id);
     const player = room?.players.find((p) => p.id === client.id);
     if (!room || !player) return;
+
+    // 신뢰 경계: 클라이언트 페이로드는 믿지 않는다(문자열 강제 + 길이 제한).
+    const raw = typeof payload?.text === 'string' ? payload.text : '';
+    const text = raw.trim().slice(0, MAX_CHAT_LENGTH);
+    if (!text) return;
 
     const result = this.gameService.checkGuess(room, client.id, text);
     if (result.status === 'already') return; // 정답 재입력은 무시 (단어 노출 방지)
@@ -388,10 +394,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
+    // 진행 중 제시어가 그대로 담긴 일반 채팅은 막는다(출제자·정답자가 답을 흘리는 것 방지).
+    if (
+      room.game?.word &&
+      text.toLowerCase() === room.game.word.toLowerCase()
+    ) {
+      return;
+    }
+
     this.server.to(room.code).emit('chat:message', {
       playerId: player.id,
       nickname: player.nickname,
-      text: text.trim(),
+      text,
     });
   }
 
