@@ -33,6 +33,7 @@ import { RoomService } from './room.service';
 
 const LOBBY_ROOM = 'lobby'; // 공개방 목록을 구독하는 소켓들이 모이는 가상 방
 const RECONNECT_GRACE_MS = 60_000; // 게임 중 연결이 끊겨도 이 시간 안에 돌아오면 자리를 지켜준다
+const MAX_STROKES = 5000; // 재접속 복원용 획 버퍼 상한 (한 턴 기준, 메모리 폭주 방지)
 
 // 실시간 통신 계약(protocol.ts)을 소켓 제네릭에 입혀 emit 페이로드를 컴파일 타임에 검증한다.
 type IoServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -223,6 +224,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       wordLength: game.word.length,
       remainingSec,
       correctIds: game.correctGuessers,
+      strokes: game.strokes, // 이미 그려진 획을 함께 보내 캔버스를 복원한다
       // 제시어/후보는 본인이 출제자일 때만 노출한다.
       ...(isDrawer && game.word ? { word: game.word } : {}),
       ...(isDrawer && game.phase === 'selecting'
@@ -313,6 +315,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const room = this.roomService.getRoomByPlayer(client.id);
     if (!room?.game || room.game.drawerId !== client.id) return; // 출제자만 그릴 수 있다
+    // 재접속 복원을 위해 현재 턴의 획을 쌓아 둔다.
+    // ponytail: 한 턴 내 상한(MAX_STROKES). 넘으면 이후 획은 버퍼에 안 담겨 재접속 시 뒷부분만 누락(그리기 자체는 정상).
+    if (room.game.strokes.length < MAX_STROKES) room.game.strokes.push(stroke);
     client.to(room.code).emit('draw:stroke', stroke);
   }
 
@@ -320,6 +325,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleDrawClear(@ConnectedSocket() client: IoSocket) {
     const room = this.roomService.getRoomByPlayer(client.id);
     if (!room?.game || room.game.drawerId !== client.id) return;
+    room.game.strokes = []; // 캔버스를 비웠으니 복원 버퍼도 비운다
     client.to(room.code).emit('draw:clear');
   }
 

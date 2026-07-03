@@ -56,6 +56,7 @@ export interface GameSyncPayload {
   wordLength: number; // selecting 단계면 0
   remainingSec: number; // 현재 단계 남은 시간
   correctIds: string[]; // 이번 턴 이미 맞힌 사람들의 socket id
+  strokes: DrawStroke[]; // 지금까지 그려진 획 — 재접속 시 캔버스 복원용
   word?: string; // 본인이 출제자일 때만 (본인 제시어 표시)
   choices?: string[]; // 본인이 출제자이고 아직 고르는 중일 때만
 }

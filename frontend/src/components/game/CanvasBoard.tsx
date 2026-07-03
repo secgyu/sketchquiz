@@ -5,8 +5,20 @@ import { useSocket } from "@/hooks/useSocket";
 import type { DrawStroke } from "@/lib/socket";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useGameStore } from "@/store/gameStore";
 
-const COLORS = ["#15110d", "#ff5c5c", "#ff8a3d", "#ffd23f", "#2bd46b", "#4da3ff", "#b388ff", "#ff5da2", "#8b5e3c", "#ffffff"];
+const COLORS = [
+  "#15110d",
+  "#ff5c5c",
+  "#ff8a3d",
+  "#ffd23f",
+  "#2bd46b",
+  "#4da3ff",
+  "#b388ff",
+  "#ff5da2",
+  "#8b5e3c",
+  "#ffffff",
+];
 const BRUSH_SIZES = [4, 8, 14, 22];
 const ERASER_COLOR = "#ffffff"; // 배경이 흰색이므로 흰색으로 덧그려 지운다
 
@@ -46,12 +58,14 @@ export function CanvasBoard({ canDraw }: CanvasBoardProps) {
   }, []);
 
   // 캔버스 백킹 크기를 표시 크기에 맞춘다 (마운트 시 1회; 턴마다 key로 리마운트되며 초기화).
+  // 재접속으로 리마운트된 경우, 서버가 보내준 지금까지의 획을 한 번 재생해 그림을 복원한다.
   useEffect(() => {
     const c = canvasRef.current;
     if (!c) return;
     c.width = c.clientWidth;
     c.height = c.clientHeight;
-  }, []);
+    useGameStore.getState().syncStrokes.forEach(drawSegment);
+  }, [drawSegment]);
 
   useEffect(() => {
     socket.on("draw:stroke", drawSegment);

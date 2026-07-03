@@ -31,6 +31,7 @@ export class GameService {
       correctGuessers: [],
       phase: 'selecting',
       deadline: 0, // 게이트웨이가 announceTurn에서 실제 마감 시각으로 채운다
+      strokes: [],
     };
     room.game = game;
     return game;
@@ -56,6 +57,7 @@ export class GameService {
     game.correctGuessers = [];
     game.phase = 'selecting';
     game.deadline = 0;
+    game.strokes = [];
     return game;
   }
 

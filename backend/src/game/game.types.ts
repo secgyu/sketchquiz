@@ -28,6 +28,7 @@ export interface GameState {
   correctGuessers: string[]; // 이번 턴에 정답을 맞힌 플레이어 id (순서 = 점수 차등)
   phase: TurnPhase; // 재접속 복원용 현재 단계
   deadline: number; // 현재 단계 종료 시각(epoch ms) — 재접속 시 남은시간 계산
+  strokes: DrawStroke[]; // 현재 턴에 그려진 획들 — 재접속 시 캔버스 복원용 (새 턴·전체지우기에 비움)
 }
 
 export type GuessResult =

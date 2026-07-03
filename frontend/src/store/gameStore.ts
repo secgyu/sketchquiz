@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import type { ChatMessage } from "@/lib/mock";
-import type { Player } from "@/lib/socket";
+import type { DrawStroke, Player } from "@/lib/socket";
 import { useRoomStore } from "@/store/roomStore";
 
 /** selecting: 출제자가 단어 고르는 중 · drawing: 진행 중 · reveal: 턴 종료 정답 공개 · idle: 게임 전/후 */
@@ -25,6 +25,7 @@ interface GameStore {
   deadline: number; // 종료 시각(epoch ms) → 마운트 시점과 무관하게 남은시간 계산
   myWord: string; // 출제자 본인이 정한 단어(로컬 표시용, 남에겐 안 감)
   choices: string[]; // 출제자 본인에게만 온 3지선다 후보 (선택 전까지)
+  syncStrokes: DrawStroke[]; // 재접속 시 한 번 재생할 캔버스 획 (평소엔 빈 배열)
   correctIds: string[]; // 이번 턴 정답자 id (체크 표시용)
   messages: ChatMessage[];
   ranking: Player[]; // game:ended 최종 순위
@@ -40,6 +41,7 @@ interface GameStore {
     wordLength: number;
     remainingSec: number;
     correctIds: string[];
+    strokes: DrawStroke[];
     word?: string;
     choices?: string[];
   }) => void;
@@ -66,6 +68,7 @@ const initial = {
   deadline: 0,
   myWord: "",
   choices: [] as string[],
+  syncStrokes: [] as DrawStroke[],
   correctIds: [] as string[],
   messages: [] as ChatMessage[],
   ranking: [] as Player[],
@@ -95,6 +98,7 @@ export const useGameStore = create<GameStore>((set) => ({
       deadline: Date.now() + selectDuration * 1000,
       myWord: "",
       choices: [], // 새 턴 시작 → 후보는 word-choices로 다시 채워진다(출제자 한정)
+      syncStrokes: [], // 새 턴엔 복원할 획이 없다(캔버스는 깨끗이 시작)
       correctIds: [],
       reveal: null, // 이전 턴 공개 오버레이 제거
       // 채팅 로그는 게임 내내 유지하고, 새 게임(직전 phase가 idle)일 때만 비운다.
@@ -103,7 +107,7 @@ export const useGameStore = create<GameStore>((set) => ({
   },
 
   // 재접속 스냅샷으로 진행 중인 게임 화면을 통째로 복원한다(그림 획·채팅 기록은 복원 대상 아님).
-  onSync: ({ round, totalRounds, drawerId, phase, wordLength, remainingSec, correctIds, word, choices }) =>
+  onSync: ({ round, totalRounds, drawerId, phase, wordLength, remainingSec, correctIds, strokes, word, choices }) =>
     set((s) => ({
       turnKey: s.turnKey + 1,
       phase,
@@ -115,6 +119,7 @@ export const useGameStore = create<GameStore>((set) => ({
       deadline: Date.now() + remainingSec * 1000,
       myWord: word ?? "",
       choices: choices ?? [],
+      syncStrokes: strokes, // 새로 마운트되는 캔버스가 이 획들을 한 번 재생한다
       correctIds,
       reveal: null,
       messages: [message("system", "게임에 다시 연결했어요.")],
