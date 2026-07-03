@@ -1,11 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { Compass, LogIn, LogOut, Pencil } from "lucide-react";
+import { Compass, HelpCircle, LogIn, LogOut, MessageCircle, Pencil, Trophy } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
+import { HowToPlay } from "@/components/HowToPlay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/store/authStore";
+
+const HOWTO_SEEN_KEY = "sq_seen_howto";
+
+const HERO_STEPS = [
+  { icon: Pencil, label: "그린다", color: "bg-brand-yellow" },
+  { icon: MessageCircle, label: "맞힌다", color: "bg-brand-green" },
+  { icon: Trophy, label: "순위", color: "bg-brand-pink" },
+];
 
 export function StartScreen() {
   const navigate = useNavigate();
@@ -14,6 +23,15 @@ export function StartScreen() {
 
   const [roomCode, setRoomCode] = useState("");
   const [error, setError] = useState("");
+  const [howto, setHowto] = useState(false);
+
+  // 첫 방문이면 게임 방법을 한 번 자동으로 보여준다(이후로는 버튼으로만).
+  useEffect(() => {
+    if (!localStorage.getItem(HOWTO_SEEN_KEY)) {
+      setHowto(true);
+      localStorage.setItem(HOWTO_SEEN_KEY, "1");
+    }
+  }, []);
 
   const handleJoin = () => {
     if (roomCode.trim().length < 4) return setError("방 코드 4자리를 입력해 줘!");
@@ -112,7 +130,22 @@ export function StartScreen() {
             </Button>
           </div>
         ) : (
-          <div className="mt-8 space-y-4">
+          <div className="mt-8 space-y-5">
+            <div className="grid grid-cols-3 gap-2.5">
+              {HERO_STEPS.map((step) => (
+                <div
+                  key={step.label}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border-2 border-ink bg-white px-2 py-3 shadow-[2px_2px_0_0_var(--color-ink)]"
+                >
+                  <span
+                    className={`flex size-9 items-center justify-center rounded-lg border-2 border-ink ${step.color}`}
+                  >
+                    <step.icon className="size-5 text-ink" strokeWidth={2.5} />
+                  </span>
+                  <span className="text-xs font-black text-ink">{step.label}</span>
+                </div>
+              ))}
+            </div>
             <p className="text-center text-sm font-bold text-ink/70">
               로그인하면 방을 만들고 친구와 함께 놀 수 있어요!
             </p>
@@ -122,7 +155,18 @@ export function StartScreen() {
             </Button>
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={() => setHowto(true)}
+          className="mx-auto mt-5 flex items-center gap-1.5 text-sm font-black text-muted-foreground transition-colors hover:text-ink"
+        >
+          <HelpCircle className="size-4" strokeWidth={2.5} />
+          게임 방법 보기
+        </button>
       </main>
+
+      <HowToPlay open={howto} onOpenChange={setHowto} />
     </div>
   );
 }
