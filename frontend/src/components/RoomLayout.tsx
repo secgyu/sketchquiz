@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Outlet, useNavigate, useParams } from "react-router";
+import { Outlet, useLocation, useNavigate, useParams } from "react-router";
 
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { useSocket } from "@/hooks/useSocket";
@@ -83,10 +83,14 @@ export function RoomLayout() {
     };
   }, [socket, code, navigate]);
 
+  // 대기실 → 게임 → 결과 사이 전환에만 애니메이션(RoomLayout 자체는 유지).
+  const pathname = useLocation().pathname;
   return (
     <>
       <ConnectionBanner />
-      <Outlet />
+      <div key={pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <Outlet />
+      </div>
     </>
   );
 }
