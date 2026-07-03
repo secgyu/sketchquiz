@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Logger, OnModuleInit } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import {
   ConnectedSocket,
@@ -29,12 +29,15 @@ import type {
   SocketData,
 } from './game.types';
 import type { ClientToServerEvents, ServerToClientEvents } from './protocol';
+import { RoomPersistenceService } from './room-persistence.service';
 import { RoomService } from './room.service';
 
 const LOBBY_ROOM = 'lobby'; // 공개방 목록을 구독하는 소켓들이 모이는 가상 방
 const RECONNECT_GRACE_MS = 60_000; // 게임 중 연결이 끊겨도 이 시간 안에 돌아오면 자리를 지켜준다
 const MAX_STROKES = 5000; // 재접속 복원용 획 버퍼 상한 (한 턴 기준, 메모리 폭주 방지)
 const MAX_CHAT_LENGTH = 200; // 채팅 한 줄 최대 길이 (도배·과대 페이로드 방어)
+// 재시작 복원 직후엔 마감이 이미 지났을 수 있다. 재접속할 시간을 주려 최소 이만큼 턴을 연장한다.
+const RESTORE_MIN_TURN_MS = 15_000;
 
 // 실시간 통신 계약(protocol.ts)을 소켓 제네릭에 입혀 emit 페이로드를 컴파일 타임에 검증한다.
 type IoServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -48,7 +51,9 @@ type IoSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 @WebSocketGateway({
   cors: { origin: 'http://localhost:5173' },
 })
-export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class GameGateway
+  implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit
+{
   @WebSocketServer()
   server: IoServer;
 
@@ -61,7 +66,49 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly roomService: RoomService,
     private readonly gameService: GameService,
     private readonly jwt: JwtService,
+    private readonly persistence: RoomPersistenceService,
   ) {}
+
+  /**
+   * 서버 부팅 시: 저장돼 있던 방을 복원하고 타이머를 다시 건다.
+   * 재시작 직후엔 붙어있는 소켓이 없으므로 모든 플레이어를 '끊김'으로 두고 재접속 유예를 건다.
+   * 그 뒤 주기 스냅샷을 시작한다.
+   */
+  async onModuleInit() {
+    try {
+      const rooms = await this.persistence.loadAll();
+      for (const room of rooms) {
+        room.players.forEach((p) => (p.connected = false));
+      }
+      this.roomService.restore(rooms);
+      for (const room of rooms) this.rearmRoom(room);
+      if (rooms.length) this.logger.log(`재시작 복원: 방 ${rooms.length}개`);
+    } catch (err) {
+      this.logger.error('방 상태 복원 실패', err as Error);
+    }
+    this.persistence.startSnapshots();
+  }
+
+  /** 복원된 방 하나의 진행 타이머·재접속 유예를 다시 건다. */
+  private rearmRoom(room: Room) {
+    if (room.game) {
+      const remainingMs = Math.max(0, room.game.deadline - Date.now());
+      const ms = Math.max(remainingMs, RESTORE_MIN_TURN_MS);
+      this.turnTimers.set(
+        room.code,
+        setTimeout(() => this.endTurn(room.code), ms),
+      );
+    }
+    // 재시작 직후 전원이 끊긴 상태 → 각자에게 재접속 유예를 건다(안 돌아오면 정리).
+    for (const player of room.players) {
+      this.scheduleRemoval(
+        room.code,
+        player.id,
+        player.userId,
+        player.nickname,
+      );
+    }
+  }
 
   handleConnection(client: IoSocket) {
     try {

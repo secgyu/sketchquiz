@@ -15,3 +15,11 @@ model User {
   password  String // bcrypt 해시
   createdAt DateTime @default(now())
 }
+
+/// 진행 중인 방/게임 상태의 주기 스냅샷. 서버 재시작 시 복원용.
+/// 런타임 진실의 원천은 인메모리이고, 이 테이블은 내구성 미러일 뿐이다(방 전체를 JSON으로 저장).
+model GameRoom {
+  code      String   @id
+  data      Json
+  updatedAt DateTime @updatedAt
+}

@@ -219,6 +219,16 @@ export class RoomService {
     return this.rooms.get(code);
   }
 
+  /** 영속화 스냅샷용: 현재 살아있는 방 전체. */
+  getAllRooms(): Room[] {
+    return [...this.rooms.values()];
+  }
+
+  /** 서버 재시작 복원용: 저장돼 있던 방들을 메모리로 되돌린다(기존 것은 덮어쓴다). */
+  restore(rooms: Room[]): void {
+    for (const room of rooms) this.rooms.set(room.code, room);
+  }
+
   getRoomByPlayer(playerId: string): Room | undefined {
     for (const room of this.rooms.values()) {
       if (room.players.some((p) => p.id === playerId)) return room;
