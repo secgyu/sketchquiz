@@ -6,6 +6,7 @@ export interface Player {
   isDrawing: boolean;
   hasGuessed: boolean;
   connected?: boolean; // 재접속 대기 중이면 false → 목록에서 흐리게 표시
+  avatar?: string; // 이모지 아바타 (없으면 닉네임 첫 글자)
 }
 
 export type ChatKind = "chat" | "correct" | "system";

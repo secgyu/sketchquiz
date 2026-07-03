@@ -27,7 +27,7 @@ export function PlayerList({ players, ranked = false, showStatus = true, variant
               player.connected === false && "opacity-40",
             )}
           >
-            <Avatar nickname={player.nickname} size="sm" />
+            <Avatar nickname={player.nickname} avatar={player.avatar} size="sm" />
             <div className="min-w-0">
               <div className="flex items-center gap-0.5">
                 <span className="max-w-[72px] truncate text-xs font-extrabold text-ink">{player.nickname}</span>
@@ -57,7 +57,7 @@ export function PlayerList({ players, ranked = false, showStatus = true, variant
           )}
         >
           {ranked && <span className="w-5 text-center text-base font-black text-ink tabular-nums">{index + 1}</span>}
-          <Avatar nickname={player.nickname} size="sm" />
+          <Avatar nickname={player.nickname} avatar={player.avatar} size="sm" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1">
               <span className="truncate text-sm font-extrabold text-ink">{player.nickname}</span>

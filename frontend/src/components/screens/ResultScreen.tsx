@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { DoorOpen, RotateCcw, Trophy } from "lucide-react";
+import { DoorOpen, RotateCcw, Share2, Trophy } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { disconnectSocket, type Player } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
 import { useRoomStore } from "@/store/roomStore";
+import { toast } from "@/store/toastStore";
 
 const PODIUM_STYLE = [
   { height: "h-28", fill: "bg-brand-yellow", label: "1" },
@@ -55,7 +56,7 @@ function PodiumColumn({ player, rank }: { player: Player; rank: number }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-end gap-2">
       <div className="animate-in zoom-in-75 fade-in relative duration-500">
-        <Avatar nickname={player.nickname} size="lg" />
+        <Avatar nickname={player.nickname} avatar={player.avatar} size="lg" />
         <span className="absolute -top-2 -right-2 flex size-7 items-center justify-center rounded-full border-2 border-ink bg-white text-sm font-black text-ink">
           {style.label}
         </span>
@@ -84,7 +85,7 @@ function RestRow({ player, rank, delayMs }: { player: Player; rank: number; dela
       style={{ animationDelay: `${delayMs}ms`, animationFillMode: "both" }}
     >
       <span className="w-5 text-center text-base font-black text-ink tabular-nums">{rank}</span>
-      <Avatar nickname={player.nickname} size="sm" />
+      <Avatar nickname={player.nickname} avatar={player.avatar} size="sm" />
       <span className="flex-1 truncate text-sm font-extrabold text-ink">{player.nickname}</span>
       <span className="text-sm font-black text-muted-foreground tabular-nums">{score.toLocaleString()}점</span>
     </li>
@@ -104,6 +105,24 @@ export function ResultScreen() {
     useGameStore.getState().reset();
     useRoomStore.getState().reset();
     navigate("/");
+  };
+
+  const handleShare = async () => {
+    const lines = ranking.map(
+      (p, i) => `${i + 1}. ${p.avatar ? p.avatar + " " : ""}${p.nickname} — ${p.score}점`,
+    );
+    const url = `${window.location.origin}/room/${code}`;
+    const text = `🏆 SketchQuiz 결과\n${lines.join("\n")}\n\n같이 하기 👉 ${url}`;
+    try {
+      // 모바일 등 네이티브 공유 시트가 있으면 우선 사용, 없으면 클립보드로 대체한다.
+      if (navigator.share) await navigator.share({ title: "SketchQuiz 결과", text });
+      else {
+        await navigator.clipboard.writeText(text);
+        toast.success("결과를 클립보드에 복사했어요!");
+      }
+    } catch {
+      // 사용자가 공유를 취소한 경우 등은 조용히 무시한다.
+    }
   };
 
   return (
@@ -140,9 +159,11 @@ export function ResultScreen() {
             <RotateCcw strokeWidth={2.5} />
             다시 하기
           </Button>
-          <Button size="lg" variant="default" onClick={handleLeave}>
+          <Button size="lg" variant="blue" onClick={handleShare} aria-label="결과 공유">
+            <Share2 strokeWidth={2.5} />
+          </Button>
+          <Button size="lg" variant="default" onClick={handleLeave} aria-label="나가기">
             <DoorOpen strokeWidth={2.5} />
-            나가기
           </Button>
         </div>
       </main>

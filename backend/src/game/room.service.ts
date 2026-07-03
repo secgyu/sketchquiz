@@ -40,6 +40,7 @@ export class RoomService {
     userId: string,
     nickname: string,
     options: CreateRoomPayload = {},
+    avatar = '',
   ): Room {
     const code = this.generateUniqueCode();
     const name =
@@ -63,7 +64,9 @@ export class RoomService {
         ROOM_LIMITS.roundSeconds,
       ),
       createdAt: Date.now(),
-      players: [{ id: hostId, userId, nickname, score: 0, connected: true }],
+      players: [
+        { id: hostId, userId, nickname, score: 0, connected: true, avatar },
+      ],
     };
     this.rooms.set(code, room);
     return room;
@@ -126,6 +129,7 @@ export class RoomService {
     playerId: string,
     userId: string,
     nickname: string,
+    avatar = '',
   ): Room {
     const room = this.rooms.get(code);
     if (!room) throw new Error('존재하지 않는 방이에요.');
@@ -139,6 +143,7 @@ export class RoomService {
         nickname,
         score: 0,
         connected: true,
+        avatar,
       });
     }
     return room;

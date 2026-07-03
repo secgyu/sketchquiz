@@ -4,6 +4,7 @@ export interface Player {
   nickname: string;
   score: number;
   connected: boolean; // 재접속 대기 중이면 false (UI에서 흐리게 표시)
+  avatar?: string; // 사용자가 고른 이모지 아바타 (없으면 닉네임 첫 글자로 대체)
 }
 
 /** 서버 내부 플레이어. 재접속 매칭용 안정 신원(userId)을 함께 들고 있다. */
@@ -89,6 +90,7 @@ export interface CreateRoomPayload {
 export interface SocketData {
   userId: string;
   username: string;
+  avatar: string; // 핸드셰이크로 전달된 이모지 아바타 (선택, 없으면 '')
 }
 
 export interface JoinRoomPayload {

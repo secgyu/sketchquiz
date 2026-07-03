@@ -68,6 +68,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const data = client.data as SocketData;
       data.userId = payload.sub;
       data.username = payload.username;
+      data.avatar = this.extractAvatar(client);
       this.logger.log(`연결됨: ${payload.username} (${client.id})`);
     } catch {
       client.emit('auth:error', {
@@ -163,6 +164,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.userId(client),
       this.username(client),
       options,
+      this.avatar(client),
     );
     void client.join(room.code);
     this.emitLobbyUpdate(); // 공개방이면 목록에 즉시 노출
@@ -181,7 +183,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // 재접속: 같은 방에 내 userId가 이미 있으면 새 소켓으로 갈아끼우고 상태를 복원한다.
     if (existing?.players.some((p) => p.userId === userId)) {
-      this.roomService.rebindPlayer(existing, userId, client.id);
+      const rebound = this.roomService.rebindPlayer(
+        existing,
+        userId,
+        client.id,
+      );
+      if (rebound) rebound.avatar = this.avatar(client); // 재접속 시 최신 아바타 반영
       this.cancelRemoval(userId);
       void client.join(existing.code);
       this.server.to(existing.code).emit('room:state', this.toState(existing));
@@ -196,6 +203,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.id,
         userId,
         this.username(client),
+        this.avatar(client),
       );
       void client.join(room.code);
       // 진행 중인 방에 들어온 신규 참가자(드롭인): 턴 순서에 편입하고 현재 상태를 스냅샷으로 맞춰준다.
@@ -513,11 +521,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   /** 클라이언트로 내보낼 때 서버 비밀(userId)을 제거한 플레이어 목록. */
   private publicPlayers(room: Room): Player[] {
-    return room.players.map(({ id, nickname, score, connected }) => ({
+    return room.players.map(({ id, nickname, score, connected, avatar }) => ({
       id,
       nickname,
       score,
       connected,
+      avatar,
     }));
   }
 
@@ -527,6 +536,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private userId(client: IoSocket): string {
     return (client.data as SocketData).userId;
+  }
+
+  private avatar(client: IoSocket): string {
+    return (client.data as SocketData).avatar ?? '';
+  }
+
+  /** 핸드셰이크에서 이모지 아바타를 꺼내 상한 길이로 자른다(신뢰 경계 방어). */
+  private extractAvatar(client: IoSocket): string {
+    const auth = client.handshake.auth as { avatar?: unknown };
+    if (typeof auth.avatar !== 'string') return '';
+    return [...auth.avatar].slice(0, 4).join(''); // 이모지 1개(다중 코드포인트) 정도만 허용
   }
 
   /** 소켓 핸드셰이크에서 JWT를 꺼낸다 (auth.token 우선, Authorization 헤더 대체). */

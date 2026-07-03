@@ -1,6 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 
 import { API_URL } from "@/lib/api";
+import { getAvatar } from "@/lib/avatar";
 import { useAuthStore } from "@/store/authStore";
 
 // 실시간 통신 계약은 백엔드가 단일 소스다. 여기선 타입만 재노출해 기존 import 경로를 유지한다.
@@ -25,7 +26,7 @@ export function getSocket(): AppSocket {
   if (socket) return socket;
   socket = io(API_URL, {
     autoConnect: false,
-    auth: (cb) => cb({ token: useAuthStore.getState().token ?? "" }),
+    auth: (cb) => cb({ token: useAuthStore.getState().token ?? "", avatar: getAvatar() }),
   });
   return socket;
 }

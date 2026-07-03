@@ -3,9 +3,11 @@ import { useNavigate } from "react-router";
 import { Compass, HelpCircle, LogIn, LogOut, MessageCircle, Pencil, Trophy } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
+import { AvatarPicker } from "@/components/AvatarPicker";
 import { HowToPlay } from "@/components/HowToPlay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getAvatar, setAvatar } from "@/lib/avatar";
 import { useAuthStore } from "@/store/authStore";
 
 const HOWTO_SEEN_KEY = "sq_seen_howto";
@@ -24,6 +26,13 @@ export function StartScreen() {
   const [roomCode, setRoomCode] = useState("");
   const [error, setError] = useState("");
   const [howto, setHowto] = useState(false);
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const [avatar, setAvatarState] = useState(getAvatar);
+
+  const chooseAvatar = (emoji: string) => {
+    setAvatar(emoji);
+    setAvatarState(emoji);
+  };
 
   // 첫 방문이면 게임 방법을 한 번 자동으로 보여준다(이후로는 버튼으로만).
   useEffect(() => {
@@ -65,7 +74,14 @@ export function StartScreen() {
           <div className="mt-8 space-y-5">
             <div className="flex items-center justify-between gap-3 rounded-xl border-[3px] border-ink bg-brand-yellow px-4 py-3 shadow-hard">
               <div className="flex items-center gap-3">
-                <Avatar nickname={user.username} />
+                <button
+                  type="button"
+                  onClick={() => setAvatarOpen(true)}
+                  title="아바타 바꾸기"
+                  className="press rounded-lg"
+                >
+                  <Avatar nickname={user.username} avatar={avatar} />
+                </button>
                 <div className="text-left">
                   <p className="text-xs font-bold text-ink/70">반가워요</p>
                   <p className="text-lg font-black text-ink">{user.username}</p>
@@ -167,6 +183,15 @@ export function StartScreen() {
       </main>
 
       <HowToPlay open={howto} onOpenChange={setHowto} />
+      {user && (
+        <AvatarPicker
+          open={avatarOpen}
+          onOpenChange={setAvatarOpen}
+          nickname={user.username}
+          value={avatar}
+          onSelect={chooseAvatar}
+        />
+      )}
     </div>
   );
 }

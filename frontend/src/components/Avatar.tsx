@@ -9,13 +9,14 @@ const SIZES = {
 
 interface AvatarProps {
   nickname: string;
+  avatar?: string; // 이모지 아바타 (없으면 닉네임 첫 글자로 대체)
   size?: keyof typeof SIZES;
   className?: string;
 }
 
-/** 닉네임 첫 글자를 원색 사각 배지로 보여주는 아바타 */
-export function Avatar({ nickname, size = "md", className }: AvatarProps) {
-  const initial = [...nickname][0]?.toUpperCase() ?? "?";
+/** 이모지(있으면) 또는 닉네임 첫 글자를 원색 사각 배지로 보여주는 아바타 */
+export function Avatar({ nickname, avatar, size = "md", className }: AvatarProps) {
+  const content = avatar || ([...nickname][0]?.toUpperCase() ?? "?");
   return (
     <span
       aria-hidden="true"
@@ -26,7 +27,7 @@ export function Avatar({ nickname, size = "md", className }: AvatarProps) {
         className
       )}
     >
-      {initial}
+      {content}
     </span>
   );
 }
