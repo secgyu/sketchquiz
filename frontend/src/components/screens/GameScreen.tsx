@@ -164,17 +164,21 @@ export function GameScreen() {
           />
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto md:grid-cols-[230px_1fr_320px] md:overflow-hidden">
-          <aside className="flex min-h-0 flex-col rounded-xl border-[3px] border-ink bg-white p-3 shadow-hard">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden md:grid md:grid-cols-[230px_1fr_320px] md:gap-4">
+          <aside className="flex shrink-0 flex-col rounded-xl border-[3px] border-ink bg-white p-3 shadow-hard md:min-h-0">
             <h2 className="mb-2 inline-block self-start -rotate-1 border-2 border-ink bg-brand-blue px-2 py-0.5 text-xs font-black uppercase text-ink">
               플레이어 {players.length}
             </h2>
-            <div className="thin-scroll min-h-0 flex-1 overflow-y-auto pr-1">
+            {/* 데스크톱: 세로 목록 / 모바일: 가로 스트립(공간 절약, 캔버스 우선) */}
+            <div className="thin-scroll hidden min-h-0 flex-1 overflow-y-auto pr-1 md:block">
               <PlayerList players={players} ranked />
+            </div>
+            <div className="md:hidden">
+              <PlayerList players={players} ranked variant="strip" />
             </div>
           </aside>
 
-          <section className="min-h-[340px] md:min-h-0">
+          <section className="h-[44svh] shrink-0 md:h-auto md:min-h-0">
             {phase === "drawing" ? (
               <CanvasBoard key={turnKey} canDraw={isDrawer} />
             ) : (
@@ -182,7 +186,7 @@ export function GameScreen() {
             )}
           </section>
 
-          <aside className="flex min-h-[340px] flex-col rounded-xl border-[3px] border-ink bg-white p-3 shadow-hard md:min-h-0">
+          <aside className="flex min-h-0 flex-1 flex-col rounded-xl border-[3px] border-ink bg-white p-3 shadow-hard md:flex-none md:min-h-0">
             <ChatPanel canGuess={!isDrawer} />
           </aside>
         </div>
@@ -202,7 +206,7 @@ export function GameScreen() {
 /** 그리기 전(단어 선택) 화면: 출제자는 3지선다에서 하나 선택, 나머지는 대기 안내. */
 function WaitingPanel({ isDrawer, choices, onPick }: { isDrawer: boolean; choices: string[]; onPick: (w: string) => void }) {
   return (
-    <div className="flex h-full min-h-[340px] flex-col items-center justify-center rounded-xl border-[3px] border-ink bg-white p-6 text-center shadow-hard-lg">
+    <div className="flex h-full flex-col items-center justify-center rounded-xl border-[3px] border-ink bg-white p-6 text-center shadow-hard-lg">
       <span className="mb-4 flex size-14 -rotate-6 items-center justify-center rounded-xl border-[3px] border-ink bg-brand-yellow shadow-hard">
         <Pencil className="size-7 text-ink" strokeWidth={2.5} />
       </span>

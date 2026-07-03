@@ -8,10 +8,40 @@ interface PlayerListProps {
   players: Player[];
   ranked?: boolean;
   showStatus?: boolean;
+  /** "list": 세로 목록(기본). "strip": 모바일용 가로 스크롤 칩. */
+  variant?: "list" | "strip";
 }
 
-export function PlayerList({ players, ranked = false, showStatus = true }: PlayerListProps) {
+export function PlayerList({ players, ranked = false, showStatus = true, variant = "list" }: PlayerListProps) {
   const ordered = ranked ? [...players].sort((a, b) => b.score - a.score) : players;
+
+  if (variant === "strip") {
+    return (
+      <ul className="thin-scroll flex gap-2 overflow-x-auto pb-1">
+        {ordered.map((player) => (
+          <li
+            key={player.id}
+            className={cn(
+              "flex shrink-0 items-center gap-2 rounded-lg border-2 border-ink px-2 py-1",
+              player.isDrawing ? "bg-brand-yellow" : player.hasGuessed ? "bg-brand-green" : "bg-white",
+              player.connected === false && "opacity-40",
+            )}
+          >
+            <Avatar nickname={player.nickname} size="sm" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-0.5">
+                <span className="max-w-[72px] truncate text-xs font-extrabold text-ink">{player.nickname}</span>
+                {player.isHost && <Crown className="size-3 shrink-0 text-ink" aria-label="방장" />}
+              </div>
+              <span className="text-[11px] font-bold text-muted-foreground tabular-nums">
+                {player.score.toLocaleString()}점
+              </span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    );
+  }
 
   return (
     <ul className="flex flex-col gap-2">

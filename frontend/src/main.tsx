@@ -10,6 +10,7 @@ import { AuthScreen } from "@/components/screens/AuthScreen";
 import { CreateRoomScreen } from "@/components/screens/CreateRoomScreen";
 import { GameScreen } from "@/components/screens/GameScreen";
 import { LobbyScreen } from "@/components/screens/LobbyScreen";
+import { NotFoundScreen } from "@/components/screens/NotFoundScreen";
 import { ResultScreen } from "@/components/screens/ResultScreen";
 import { RoomBrowserScreen } from "@/components/screens/RoomBrowserScreen";
 import { StartScreen } from "@/components/screens/StartScreen";
@@ -50,6 +51,7 @@ const router = createBrowserRouter([
           { path: "result", element: <ResultScreen /> },
         ],
       },
+      { path: "*", element: <NotFoundScreen /> },
     ],
   },
 ]);
