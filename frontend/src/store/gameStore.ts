@@ -100,6 +100,7 @@ export const useGameStore = create<GameStore>((set) => ({
       choices: [], // 새 턴 시작 → 후보는 word-choices로 다시 채워진다(출제자 한정)
       syncStrokes: [], // 새 턴엔 복원할 획이 없다(캔버스는 깨끗이 시작)
       correctIds: [],
+      correctFlash: 0, // 이전 게임/턴에서 남은 "정답!" 트리거 초기화(재시작 시 오작동 방지)
       reveal: null, // 이전 턴 공개 오버레이 제거
       // 채팅 로그는 게임 내내 유지하고, 새 게임(직전 phase가 idle)일 때만 비운다.
       messages: s.phase === "idle" ? [turnMsg] : [...s.messages, turnMsg],
@@ -121,6 +122,7 @@ export const useGameStore = create<GameStore>((set) => ({
       choices: choices ?? [],
       syncStrokes: strokes, // 새로 마운트되는 캔버스가 이 획들을 한 번 재생한다
       correctIds,
+      correctFlash: 0,
       reveal: null,
       messages: [message("system", "게임에 다시 연결했어요.")],
     })),

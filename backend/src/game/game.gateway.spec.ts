@@ -111,6 +111,27 @@ describe('GameGateway 턴 종료 연출', () => {
     expect(syncSpy).toHaveBeenCalledWith('game:sync', expect.any(Object));
   });
 
+  it('출제자가 새로고침(연결 끊김)해도 턴이 넘어가지 않고, 재접속하면 자리를 이어받는다', () => {
+    const host = mockClient('h'); // 첫 출제자
+    const guesser = mockClient('g');
+    startTwoPlayerGame(host, guesser);
+    const room = roomService.getRoomByPlayer('h')!;
+    const beforeDrawer = room.game!.drawerId;
+    const beforeRound = room.game!.round;
+
+    gateway.handleDisconnect(host); // 출제자 새로고침 → 연결 끊김
+
+    expect(room.game!.drawerId).toBe(beforeDrawer); // 턴 유지(즉시 넘어가지 않음)
+    expect(room.game!.round).toBe(beforeRound);
+
+    // 같은 userId('h')로 새 소켓 재접속 → 리바인드
+    const host2 = mockClient('h2');
+    (host2.data as { userId: string }).userId = 'h';
+    gateway.handleJoin(host2, { code: room.code });
+
+    expect(room.game!.drawerId).toBe('h2'); // 새 소켓으로 출제자 자리 복원
+  });
+
   it('혼자서는 게임을 시작할 수 없다', () => {
     const host = mockClient('solo');
     gateway.handleCreate(host, {});

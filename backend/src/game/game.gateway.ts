@@ -90,10 +90,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (room.game) {
       // 게임 중: 즉시 내보내지 않고 '접속 끊김'으로만 표시하고 재접속을 기다린다.
-      const wasDrawer = room.game.drawerId === socketId;
+      // 출제자가 끊겨도 턴을 넘기지 않는다 — 새로고침이면 곧 돌아와 game:sync로 이어서 그린다.
+      // 끝내 안 돌아오면 유예 만료(scheduleRemoval) 또는 턴 타이머가 턴을 마무리한다.
       this.roomService.markDisconnected(socketId);
       this.server.to(room.code).emit('room:state', this.toState(room));
-      if (wasDrawer) this.endTurn(room.code); // 출제자가 나가면 턴을 마무리
       this.scheduleRemoval(room.code, socketId, userId, nickname);
     } else {
       // 대기실: 기존처럼 즉시 퇴장 처리
