@@ -118,6 +118,8 @@ export function CanvasBoard({ canDraw }: CanvasBoardProps) {
       <div className="relative flex-1 overflow-hidden rounded-xl border-[3px] border-ink bg-white shadow-hard-lg">
         <canvas
           ref={canvasRef}
+          role="img"
+          aria-label={canDraw ? "그림을 그리는 캔버스" : "출제자가 그리는 그림"}
           className={cn("h-full w-full touch-none", canDraw ? "cursor-crosshair" : "cursor-default")}
           onPointerDown={handleDown}
           onPointerMove={handleMove}
@@ -140,7 +142,7 @@ export function CanvasBoard({ canDraw }: CanvasBoardProps) {
                   setErasing(false);
                 }}
                 className={cn(
-                  "size-7 rounded-md border-2 border-ink transition-transform hover:-translate-y-0.5",
+                  "size-7 rounded-md border-2 border-ink transition-transform hover:-translate-y-0.5 focus-visible:ring-4 focus-visible:ring-ink/40 focus-visible:outline-none",
                   !erasing && color === c && "ring-2 ring-ink ring-offset-2",
                 )}
                 style={{ backgroundColor: c }}
@@ -159,7 +161,7 @@ export function CanvasBoard({ canDraw }: CanvasBoardProps) {
                 aria-pressed={size === s}
                 onClick={() => setSize(s)}
                 className={cn(
-                  "flex size-9 items-center justify-center rounded-md border-2 border-ink bg-white transition-transform hover:-translate-y-0.5",
+                  "flex size-9 items-center justify-center rounded-md border-2 border-ink bg-white transition-transform hover:-translate-y-0.5 focus-visible:ring-4 focus-visible:ring-ink/40 focus-visible:outline-none",
                   size === s && "bg-brand-yellow",
                 )}
               >

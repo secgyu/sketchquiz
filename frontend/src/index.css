@@ -171,6 +171,11 @@
   transform: none;
   box-shadow: 4px 4px 0 0 var(--color-ink);
 }
+/* 키보드 포커스 표시 (마우스 클릭엔 안 뜨고 Tab 이동 시에만) */
+.press:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 2px;
+}
 
 /* 채팅/목록용 두꺼운 스크롤바 */
 .thin-scroll {
@@ -183,4 +188,16 @@
 .thin-scroll::-webkit-scrollbar-thumb {
   background: var(--color-ink);
   border-radius: 0;
+}
+
+/* 접근성: 움직임 최소화 설정을 켠 사용자에겐 애니메이션/전환을 사실상 끈다 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

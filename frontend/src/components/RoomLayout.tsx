@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate, useParams } from "react-router";
 
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { useSocket } from "@/hooks/useSocket";
+import { sound } from "@/lib/sound";
 import { useGameStore } from "@/store/gameStore";
 import { useRoomStore } from "@/store/roomStore";
 import { toast } from "@/store/toastStore";
@@ -41,11 +42,13 @@ export function RoomLayout() {
     const onCorrect = (p: Parameters<typeof game.onCorrect>[0]) => {
       const g = useGameStore.getState();
       g.onCorrect(p);
+      sound.correct(); // 누군가 맞히면 방 전원에게 효과음
       if (p.playerId === socket.id) g.flashCorrect(); // 맞힌 본인에게만 "정답!" 오버레이
     };
     const onPlayerLeft = ({ nickname }: { nickname: string }) => useGameStore.getState().onPlayerLeft(nickname);
     const onEnded = ({ ranking }: { ranking: Parameters<typeof game.onEnded>[0] }) => {
       useGameStore.getState().onEnded(ranking);
+      sound.gameEnd();
       navigate(`/room/${code}/result`);
     };
 

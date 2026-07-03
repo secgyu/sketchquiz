@@ -4,6 +4,7 @@ import { DoorOpen, RotateCcw, Trophy } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { disconnectSocket, type Player } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/store/gameStore";
@@ -19,8 +20,13 @@ const PODIUM_ORDER = [1, 0, 2];
 
 /** 0 → target 로 부드럽게(easeOutCubic) 세는 카운트업. 결과 점수 연출용. */
 function useCountUp(target: number, durationMs = 900) {
+  const reduced = usePrefersReducedMotion();
   const [value, setValue] = useState(0);
   useEffect(() => {
+    if (reduced) {
+      setValue(target); // 동작 줄이기: 애니메이션 없이 최종 점수 즉시 표시
+      return;
+    }
     let raf = 0;
     const start = performance.now();
     const tick = (t: number) => {
@@ -30,19 +36,21 @@ function useCountUp(target: number, durationMs = 900) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [target, durationMs]);
+  }, [target, durationMs, reduced]);
   return value;
 }
 
 function PodiumColumn({ player, rank }: { player: Player; rank: number }) {
   const style = PODIUM_STYLE[rank];
+  const reduced = usePrefersReducedMotion();
   const score = useCountUp(player.score);
-  const [grown, setGrown] = useState(false);
+  const [grown, setGrown] = useState(reduced);
   useEffect(() => {
+    if (reduced) return setGrown(true); // 동작 줄이기: 바를 바로 세운다
     // 1등부터 순서대로 살짝 늦게 자라도록 랭크별 지연
     const id = setTimeout(() => setGrown(true), 120 + rank * 140);
     return () => clearTimeout(id);
-  }, [rank]);
+  }, [rank, reduced]);
 
   return (
     <div className="flex flex-1 flex-col items-center justify-end gap-2">

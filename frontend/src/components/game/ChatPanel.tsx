@@ -33,7 +33,10 @@ function MessageRow({ message, me }: { message: ChatMessage; me?: string }) {
   const mine = !!me && message.nickname === me;
   return (
     <li className={cn("flex items-start gap-1.5 rounded-lg px-1.5 py-0.5 text-sm", mine && "bg-brand-blue/15")}>
-      <span className={cn("mt-1.5 size-2 shrink-0 rounded-full border border-ink", avatarColor(message.nickname ?? ""))} aria-hidden="true" />
+      <span
+        className={cn("mt-1.5 size-2 shrink-0 rounded-full border border-ink", avatarColor(message.nickname ?? ""))}
+        aria-hidden="true"
+      />
       <span className="min-w-0">
         <span className="font-extrabold text-ink">{message.nickname}</span>
         <span className="ml-1.5 font-medium text-ink/80">{message.text}</span>
@@ -66,7 +69,11 @@ export function ChatPanel({ canGuess = true }: { canGuess?: boolean }) {
       <h2 className="mb-2 inline-block self-start -rotate-1 border-2 border-ink bg-brand-purple px-2 py-0.5 text-xs font-black uppercase text-ink">
         채팅 · 추측
       </h2>
-      <ul className="thin-scroll flex-1 space-y-1.5 overflow-y-auto pr-1">
+      <ul
+        className="thin-scroll flex-1 space-y-1.5 overflow-y-auto pr-1"
+        aria-label="채팅 및 추측 기록"
+        aria-live="polite"
+      >
         {messages.map((message) => (
           <MessageRow key={message.id} message={message} me={me} />
         ))}
@@ -83,6 +90,7 @@ export function ChatPanel({ canGuess = true }: { canGuess?: boolean }) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={canGuess ? "정답 입력!" : "출제자는 채팅할 수 없어요"}
+          aria-label="정답 또는 채팅 입력"
           autoComplete="off"
           disabled={!canGuess}
         />

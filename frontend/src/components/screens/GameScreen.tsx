@@ -6,7 +6,9 @@ import { CanvasBoard } from "@/components/game/CanvasBoard";
 import { ChatPanel } from "@/components/game/ChatPanel";
 import { Confetti } from "@/components/game/Confetti";
 import { PlayerList } from "@/components/game/PlayerList";
+import { SoundToggle } from "@/components/SoundToggle";
 import { Button } from "@/components/ui/button";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useSocket } from "@/hooks/useSocket";
 import { disconnectSocket } from "@/lib/socket";
 import { cn } from "@/lib/utils";
@@ -47,6 +49,7 @@ export function GameScreen() {
   const [showCorrect, setShowCorrect] = useState(false);
 
   const isDrawer = socket.id === drawerId;
+  const reduced = usePrefersReducedMotion();
 
   useEffect(() => {
     const tick = () => setTimeLeft(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
@@ -90,8 +93,8 @@ export function GameScreen() {
     <div className="brutal-bg h-svh overflow-hidden p-4">
       {showCorrect && (
         <>
-          <Confetti />
-          <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+          {!reduced && <Confetti />}
+          <div role="status" className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
             <span className="animate-in zoom-in-50 fade-in rotate-[-4deg] rounded-2xl border-4 border-ink bg-brand-green px-10 py-5 text-5xl font-black text-ink shadow-hard-lg duration-300">
               정답!
             </span>
@@ -100,7 +103,10 @@ export function GameScreen() {
       )}
 
       {reveal && (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm duration-200">
+        <div
+          role="status"
+          className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm duration-200"
+        >
           <div className="animate-in zoom-in-95 w-full max-w-sm rounded-2xl border-[3px] border-ink bg-white p-6 text-center shadow-hard-lg duration-200">
             <p className="text-sm font-black uppercase text-muted-foreground">정답 공개</p>
             <p className="mt-1 -rotate-1 text-4xl font-black text-ink">{reveal.word}</p>
@@ -142,6 +148,7 @@ export function GameScreen() {
           )}
 
           <div className="flex items-center gap-3">
+            <SoundToggle />
             <div
               className={cn(
                 "flex items-center gap-2 rounded-lg border-2 border-ink px-3 py-1.5",
@@ -204,7 +211,15 @@ export function GameScreen() {
 }
 
 /** 그리기 전(단어 선택) 화면: 출제자는 3지선다에서 하나 선택, 나머지는 대기 안내. */
-function WaitingPanel({ isDrawer, choices, onPick }: { isDrawer: boolean; choices: string[]; onPick: (w: string) => void }) {
+function WaitingPanel({
+  isDrawer,
+  choices,
+  onPick,
+}: {
+  isDrawer: boolean;
+  choices: string[];
+  onPick: (w: string) => void;
+}) {
   return (
     <div className="flex h-full flex-col items-center justify-center rounded-xl border-[3px] border-ink bg-white p-6 text-center shadow-hard-lg">
       <span className="mb-4 flex size-14 -rotate-6 items-center justify-center rounded-xl border-[3px] border-ink bg-brand-yellow shadow-hard">
@@ -218,7 +233,13 @@ function WaitingPanel({ isDrawer, choices, onPick }: { isDrawer: boolean; choice
               <p className="text-sm font-bold text-muted-foreground">후보를 불러오는 중…</p>
             ) : (
               choices.map((word) => (
-                <Button key={word} type="button" variant="yellow" className="w-full text-lg" onClick={() => onPick(word)}>
+                <Button
+                  key={word}
+                  type="button"
+                  variant="yellow"
+                  className="w-full text-lg"
+                  onClick={() => onPick(word)}
+                >
                   {word}
                 </Button>
               ))
