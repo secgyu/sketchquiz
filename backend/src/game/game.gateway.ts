@@ -11,6 +11,7 @@ import {
 } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 import type { JwtPayload } from '../auth/jwt.strategy';
+import { corsOrigins } from '../cors';
 import { GameService, sameWord } from './game.service';
 import type {
   ChatMessagePayload,
@@ -42,7 +43,7 @@ type IoSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
  * 공통 브로드캐스트는 RoomBroadcaster를 통한다.
  */
 @WebSocketGateway({
-  cors: { origin: 'http://localhost:5173' },
+  cors: { origin: corsOrigins() },
 })
 export class GameGateway
   implements
