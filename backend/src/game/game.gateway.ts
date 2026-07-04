@@ -11,7 +11,7 @@ import {
 } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 import type { JwtPayload } from '../auth/jwt.strategy';
-import { GameService } from './game.service';
+import { GameService, sameWord } from './game.service';
 import type {
   ChatMessagePayload,
   CreateRoomPayload,
@@ -393,12 +393,7 @@ export class GameGateway
     }
 
     // 진행 중 제시어가 그대로 담긴 일반 채팅은 막는다(출제자·정답자가 답을 흘리는 것 방지).
-    if (
-      room.game?.word &&
-      text.toLowerCase() === room.game.word.toLowerCase()
-    ) {
-      return;
-    }
+    if (room.game?.word && sameWord(text, room.game.word)) return;
 
     this.bc.server.to(room.code).emit('chat:message', {
       playerId: player.id,

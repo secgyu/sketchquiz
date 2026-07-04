@@ -8,6 +8,7 @@ import type { Room } from './game.types';
 import { RoomBroadcaster } from './room.broadcaster';
 import { toPublicPlayers } from './room.mapper';
 import { RoomService } from './room.service';
+import { TimerRegistry } from './timer-registry';
 
 // 재시작 복원 직후엔 마감이 이미 지났을 수 있다. 재접속할 시간을 주려 최소 이만큼 턴을 연장한다.
 const RESTORE_MIN_TURN_MS = 15_000;
@@ -18,7 +19,7 @@ const RESTORE_MIN_TURN_MS = 15_000;
  */
 @Injectable()
 export class TurnManager {
-  private readonly timers = new Map<string, NodeJS.Timeout>();
+  private readonly timers = new TimerRegistry();
 
   constructor(
     private readonly rooms: RoomService,
@@ -46,7 +47,9 @@ export class TurnManager {
     });
 
     // 출제자가 제한시간 내에 단어를 정하지 않으면 턴을 건너뛴다.
-    this.setTimer(room.code, WORD_SELECT_SECONDS);
+    this.timers.set(room.code, WORD_SELECT_SECONDS * 1000, () =>
+      this.endTurn(room.code),
+    );
   }
 
   /** 출제자가 단어를 고르면 그리기 단계로 전환하고 그리기 제한시간을 건다. */
@@ -60,7 +63,9 @@ export class TurnManager {
       wordLength: word.length,
       duration: room.roundSeconds,
     });
-    this.setTimer(room.code, room.roundSeconds);
+    this.timers.set(room.code, room.roundSeconds * 1000, () =>
+      this.endTurn(room.code),
+    );
   }
 
   /**
@@ -70,11 +75,11 @@ export class TurnManager {
   endTurn(code: string): void {
     const room = this.rooms.getRoom(code);
     if (!room?.game) {
-      this.clearTimer(code);
+      this.timers.clear(code);
       return;
     }
     const game = room.game;
-    this.clearTimer(code);
+    this.timers.clear(code);
 
     if (!game.word) {
       this.advanceToNext(code);
@@ -95,9 +100,8 @@ export class TurnManager {
       duration: TURN_END_SECONDS,
     });
 
-    this.timers.set(
-      code,
-      setTimeout(() => this.advanceToNext(code), TURN_END_SECONDS * 1000),
+    this.timers.set(code, TURN_END_SECONDS * 1000, () =>
+      this.advanceToNext(code),
     );
   }
 
@@ -106,21 +110,18 @@ export class TurnManager {
     if (!room.game) return;
     const remainingMs = Math.max(0, room.game.deadline - Date.now());
     const ms = Math.max(remainingMs, RESTORE_MIN_TURN_MS);
-    this.timers.set(
-      room.code,
-      setTimeout(() => this.endTurn(room.code), ms),
-    );
+    this.timers.set(room.code, ms, () => this.endTurn(room.code));
   }
 
   private advanceToNext(code: string): void {
     const room = this.rooms.getRoom(code);
     if (!room?.game) {
-      this.clearTimer(code);
+      this.timers.clear(code);
       return;
     }
     const game = this.game.advance(room);
     if (game.status === 'ended') {
-      this.clearTimer(code);
+      this.timers.clear(code);
       room.game = undefined;
       this.bc.lobby(); // 게임중 → 대기중 상태 반영
       const ranking = toPublicPlayers(room).sort((a, b) => b.score - a.score);
@@ -134,21 +135,5 @@ export class TurnManager {
       return;
     }
     this.announceTurn(room);
-  }
-
-  private setTimer(code: string, seconds: number): void {
-    this.clearTimer(code);
-    this.timers.set(
-      code,
-      setTimeout(() => this.endTurn(code), seconds * 1000),
-    );
-  }
-
-  private clearTimer(code: string): void {
-    const timer = this.timers.get(code);
-    if (timer) {
-      clearTimeout(timer);
-      this.timers.delete(code);
-    }
   }
 }

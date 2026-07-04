@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { RoomBroadcaster } from './room.broadcaster';
 import { RoomService } from './room.service';
+import { TimerRegistry } from './timer-registry';
 import { TurnManager } from './turn.manager';
 
 const RECONNECT_GRACE_MS = 60_000; // 게임 중 연결이 끊겨도 이 시간 안에 돌아오면 자리를 지켜준다
@@ -12,7 +13,7 @@ const RECONNECT_GRACE_MS = 60_000; // 게임 중 연결이 끊겨도 이 시간 
 @Injectable()
 export class ReconnectManager {
   // 재접속 유예 타이머 (userId → 제거 예약). 돌아오면 취소한다.
-  private readonly timers = new Map<string, NodeJS.Timeout>();
+  private readonly timers = new TimerRegistry();
 
   constructor(
     private readonly rooms: RoomService,
@@ -27,32 +28,23 @@ export class ReconnectManager {
     userId: string,
     nickname: string,
   ): void {
-    this.cancel(userId);
-    this.timers.set(
-      userId,
-      setTimeout(() => {
-        this.timers.delete(userId);
-        const room = this.rooms.getRoom(code);
-        const player = room?.players.find((p) => p.id === socketId);
-        if (!player || player.connected) return; // 이미 재접속했다
-        const wasDrawer = room?.game?.drawerId === socketId;
-        const left = this.rooms.leaveRoom(socketId);
-        this.bc.lobby();
-        if (!left) return;
-        if (nickname) {
-          this.bc.server.to(left.code).emit('player:left', { nickname });
-        }
-        this.bc.state(left);
-        if (wasDrawer && left.game) this.turns.endTurn(left.code);
-      }, RECONNECT_GRACE_MS),
-    );
+    this.timers.set(userId, RECONNECT_GRACE_MS, () => {
+      const room = this.rooms.getRoom(code);
+      const player = room?.players.find((p) => p.id === socketId);
+      if (!player || player.connected) return; // 이미 재접속했다
+      const wasDrawer = room?.game?.drawerId === socketId;
+      const left = this.rooms.leaveRoom(socketId);
+      this.bc.lobby();
+      if (!left) return;
+      if (nickname) {
+        this.bc.server.to(left.code).emit('player:left', { nickname });
+      }
+      this.bc.state(left);
+      if (wasDrawer && left.game) this.turns.endTurn(left.code);
+    });
   }
 
   cancel(userId: string): void {
-    const timer = this.timers.get(userId);
-    if (timer) {
-      clearTimeout(timer);
-      this.timers.delete(userId);
-    }
+    this.timers.clear(userId);
   }
 }
