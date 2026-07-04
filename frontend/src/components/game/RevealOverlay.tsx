@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import type { TurnReveal } from "@/store/gameStore";
 
 /** 턴 종료 시 정답과 현재 점수판 상위권을 잠깐 공개하는 오버레이. */
@@ -7,7 +8,7 @@ export function RevealOverlay({ reveal }: { reveal: TurnReveal }) {
       role="status"
       className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 backdrop-blur-sm duration-200"
     >
-      <div className="animate-in zoom-in-95 w-full max-w-sm rounded-2xl border-[3px] border-ink bg-white p-6 text-center shadow-hard-lg duration-200">
+      <Card className="animate-in zoom-in-95 w-full max-w-sm p-6 text-center duration-200">
         <p className="text-sm font-black uppercase text-muted-foreground">정답 공개</p>
         <p className="mt-1 -rotate-1 text-4xl font-black text-ink">{reveal.word}</p>
         <p className="mt-3 text-sm font-black text-ink">
@@ -32,7 +33,7 @@ export function RevealOverlay({ reveal }: { reveal: TurnReveal }) {
             ))}
         </div>
         <p className="mt-4 text-xs font-bold text-muted-foreground">잠시 후 다음 턴이 시작돼요…</p>
-      </div>
+      </Card>
     </div>
   );
 }

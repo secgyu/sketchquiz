@@ -4,6 +4,7 @@ import { DoorOpen, RotateCcw, Share2, Trophy } from "lucide-react";
 
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { useLeaveRoom } from "@/hooks/useLeaveRoom";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import type { Player } from "@/lib/socket";
@@ -102,9 +103,7 @@ export function ResultScreen() {
   const leaveRoom = useLeaveRoom();
 
   const handleShare = async () => {
-    const lines = ranking.map(
-      (p, i) => `${i + 1}. ${p.avatar ? p.avatar + " " : ""}${p.nickname} — ${p.score}점`,
-    );
+    const lines = ranking.map((p, i) => `${i + 1}. ${p.avatar ? p.avatar + " " : ""}${p.nickname} — ${p.score}점`);
     const url = `${window.location.origin}/room/${code}`;
     const text = `🏆 SketchQuiz 결과\n${lines.join("\n")}\n\n같이 하기 👉 ${url}`;
     try {
@@ -121,7 +120,7 @@ export function ResultScreen() {
 
   return (
     <div className="brutal-bg flex min-h-svh items-center justify-center p-4">
-      <main className="w-full max-w-lg rounded-2xl border-[3px] border-ink bg-white p-7 shadow-hard-lg">
+      <Card as="main" className="w-full max-w-lg p-7">
         <div className="flex flex-col items-center text-center">
           <span className="animate-in zoom-in-50 fade-in flex size-14 -rotate-6 items-center justify-center rounded-xl border-[3px] border-ink bg-brand-yellow shadow-hard duration-500">
             <Trophy className="size-7 text-ink" strokeWidth={2.5} />
@@ -160,7 +159,7 @@ export function ResultScreen() {
             <DoorOpen strokeWidth={2.5} />
           </Button>
         </div>
-      </main>
+      </Card>
     </div>
   );
 }

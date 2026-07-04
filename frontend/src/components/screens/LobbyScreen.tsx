@@ -5,6 +5,7 @@ import { Check, Clock, Copy, DoorOpen, Hash, Pencil, Play, Users } from "lucide-
 import { PlayerList } from "@/components/game/PlayerList";
 import { RoomOptionsForm, type RoomOptionsValue } from "@/components/RoomOptionsForm";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { useLeaveRoom } from "@/hooks/useLeaveRoom";
 import { useSocket } from "@/hooks/useSocket";
 import type { CreateRoomOptions } from "@/lib/socket";
@@ -72,7 +73,7 @@ export function LobbyScreen() {
 
   return (
     <div className="brutal-bg flex min-h-svh items-center justify-center p-4">
-      <main className="w-full max-w-lg rounded-2xl border-[3px] border-ink bg-white p-7 shadow-hard-lg">
+      <Card as="main" className="w-full max-w-lg p-7">
         <div className="text-center">
           <h1 className="inline-block -rotate-1 text-3xl font-black tracking-tight text-ink">
             {room?.name ?? "대기실"}
@@ -207,7 +208,7 @@ export function LobbyScreen() {
           <DoorOpen className="size-4" strokeWidth={2.5} />
           나가기
         </button>
-      </main>
+      </Card>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Avatar } from "@/components/Avatar";
 import { AvatarPicker } from "@/components/AvatarPicker";
 import { HowToPlay } from "@/components/HowToPlay";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getAvatar, setAvatar } from "@/lib/avatar";
 import { useAuthStore } from "@/store/authStore";
@@ -54,7 +55,7 @@ export function StartScreen() {
 
   return (
     <div className="brutal-bg flex min-h-svh items-center justify-center p-4">
-      <main className="w-full max-w-md rounded-2xl border-[3px] border-ink bg-white p-7 shadow-hard-lg">
+      <Card as="main" className="w-full max-w-md p-7">
         <div className="flex flex-col items-center text-center">
           <span className="mb-4 flex size-16 -rotate-6 items-center justify-center rounded-xl border-[3px] border-ink bg-brand-yellow text-ink shadow-hard">
             <Pencil className="size-8" strokeWidth={2.5} />
@@ -180,7 +181,7 @@ export function StartScreen() {
           <HelpCircle className="size-4" strokeWidth={2.5} />
           게임 방법 보기
         </button>
-      </main>
+      </Card>
 
       <HowToPlay open={howto} onOpenChange={setHowto} />
       {user && (

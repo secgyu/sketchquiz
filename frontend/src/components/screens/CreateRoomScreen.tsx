@@ -11,6 +11,7 @@ import {
   type RoomOptionsValue,
 } from "@/components/RoomOptionsForm";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { useDelayedVisible } from "@/hooks/useDelayedVisible";
 import { useSocket } from "@/hooks/useSocket";
 import type { CreateRoomOptions } from "@/lib/socket";
@@ -75,7 +76,7 @@ export function CreateRoomScreen() {
   return (
     <div className="brutal-bg flex min-h-svh items-center justify-center p-4">
       {showOverlay && <LoadingOverlay message={connected ? "방 생성 중…" : "서버에 연결 중…"} />}
-      <main className="w-full max-w-md rounded-2xl border-[3px] border-ink bg-white p-7 shadow-hard-lg">
+      <Card as="main" className="w-full max-w-md p-7">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -108,7 +109,7 @@ export function CreateRoomScreen() {
             <Sparkles strokeWidth={2.5} />방 만들기
           </Button>
         </div>
-      </main>
+      </Card>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from "react-router";
 import { Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { authApi } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
@@ -44,7 +45,7 @@ export function AuthScreen() {
 
   return (
     <div className="brutal-bg flex min-h-svh items-center justify-center p-4">
-      <main className="w-full max-w-md rounded-2xl border-[3px] border-ink bg-white p-7 shadow-hard-lg">
+      <Card as="main" className="w-full max-w-md p-7">
         <div className="flex flex-col items-center text-center">
           <span className="mb-4 flex size-16 -rotate-6 items-center justify-center rounded-xl border-[3px] border-ink bg-brand-yellow text-ink shadow-hard">
             <Pencil className="size-8" strokeWidth={2.5} />
@@ -127,7 +128,7 @@ export function AuthScreen() {
             {loading ? "잠시만요..." : mode === "login" ? "로그인" : "회원가입"}
           </Button>
         </form>
-      </main>
+      </Card>
     </div>
   );
 }
